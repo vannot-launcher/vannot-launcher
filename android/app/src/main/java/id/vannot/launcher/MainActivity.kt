@@ -252,7 +252,7 @@ class MainActivity : AppCompatActivity() {
             setHintTextColor(muted)
             setTextColor(ivory)
             textSize = 14f
-            singleLine = true
+            setSingleLine(true)
             setPadding(dp(12), dp(10), dp(12), dp(10))
             background = rounded(panel, 10).apply {
                 setStroke(dp(1), Color.rgb(63, 83, 60))

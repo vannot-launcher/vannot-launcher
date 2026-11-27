@@ -1,0 +1,141 @@
+name: Android Standalone Launcher Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Android standalone launcher release tag
+        required: true
+        type: string
+        default: v2.1.3
+  push:
+    tags:
+      - 'v*'
+  schedule:
+    - cron: '0 0 1 12 *'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out Moon Launcher
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android SDK packages
+        run: sdkmanager 'platforms;android-34' 'build-tools;34.0.0' 'ndk;25.2.9519653'
+
+      - name: Check out Zalith Launcher 1 runtime
+        uses: actions/checkout@v4
+        with:
+          repository: ZalithLauncher/ZalithLauncher
+          ref: ed8a5c873b25f19d08aef5bdfc1084fd9aff836c
+          path: runtime
+          submodules: recursive
+
+      - name: Verify CurseForge API connection
+        env:
+          CURSEFORGE_API_KEY: ${{ secrets.api_key_curseforge || secrets.API_KEY_CURSEFORGE || secrets.CURSEFORGE_API_KEY || secrets.CURSEFORGE_API_TOKEN }}
+        run: |
+          if [[ -z "${CURSEFORGE_API_KEY:-}" ]]; then
+            echo "::error::Android CurseForge build blocked: repository secret api_key_curseforge (or a supported CurseForge secret name) is not configured."
+            exit 1
+          fi
+
+          response_file="$(mktemp)"
+          http_status="$(curl --silent --show-error \
+            --output "$response_file" \
+            --write-out '%{http_code}' \
+            --header 'Accept: application/json' \
+            --header "x-api-key: ${CURSEFORGE_API_KEY}" \
+            'https://api.curseforge.com/v1/categories?gameId=432')"
+
+          if [[ "$http_status" != "200" ]]; then
+            echo "::error::CurseForge API verification failed with HTTP ${http_status}."
+            exit 1
+          fi
+
+          node -e "const fs=require('fs'); const body=JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); if (!Array.isArray(body.data)) process.exit(1);" "$response_file"
+          rm -f "$response_file"
+          echo "CurseForge API connection verified successfully."
+
+      - name: Rebrand Zalith runtime as Moon Launcher
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'schedule' && 'v3.2.0' || inputs.release_tag || github.ref_name }}
+          CURSEFORGE_API_KEY: ${{ secrets.api_key_curseforge || secrets.API_KEY_CURSEFORGE || secrets.CURSEFORGE_API_KEY || secrets.CURSEFORGE_API_TOKEN }}
+        run: node android/rebrand-zalith.mjs runtime "$RELEASE_TAG"
+
+      - name: Install Android Rust build tools
+        run: |
+          rustup target add aarch64-linux-android
+          rustup target add armv7-linux-androideabi
+          cargo install cargo-ndk --locked
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+          validate-wrappers: false
+
+      - name: Build Moon Android launcher
+        env:
+          CURSEFORGE_API_KEY: ${{ secrets.api_key_curseforge || secrets.API_KEY_CURSEFORGE || secrets.CURSEFORGE_API_KEY || secrets.CURSEFORGE_API_TOKEN }}
+        run: |
+          cd runtime
+          chmod +x gradlew
+          gradle :ZalithLauncher:assembleDebug -Darch=arm64
+          find ZalithLauncher/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -exec cp {} /tmp/moon-arm64.apk \;
+          gradle :ZalithLauncher:assembleDebug -Darch=arm32
+          cd ..
+          mkdir -p release-artifacts
+          cp /tmp/moon-arm64.apk "release-artifacts/Moon-Launcher-${{ github.event_name == 'schedule' && 'v3.2.0' || inputs.release_tag || github.ref_name }}-Android-arm64.apk"
+          armv7_apk="$(find runtime/ZalithLauncher/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' ! -samefile /tmp/moon-arm64.apk | head -n 1)"
+          if [[ -z "$armv7_apk" ]]; then
+            armv7_apk="$(find runtime/ZalithLauncher/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n 1)"
+          fi
+          cp "$armv7_apk" "release-artifacts/Moon-Launcher-${{ github.event_name == 'schedule' && 'v3.2.0' || inputs.release_tag || github.ref_name }}-Android-armv7.apk"
+
+      - name: Validate and checksum Android artifact
+        run: |
+          node scripts/validate-release.mjs android '${{ github.event_name == 'schedule' && 'v3.2.0' || inputs.release_tag || github.ref_name }}' release-artifacts > release-artifacts/SHA256SUMS.txt
+          cat release-artifacts/SHA256SUMS.txt
+
+      - name: Resolve Android release channel
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'schedule' && 'v3.2.0' || inputs.release_tag || github.ref_name }}
+        run: |
+          if [[ "$RELEASE_TAG" == *"-beta."* || "$RELEASE_TAG" == *"-alpha."* || "$RELEASE_TAG" == *"-rc."* ]]; then
+            echo "IS_PRERELEASE=true" >> "$GITHUB_ENV"
+          else
+            echo "IS_PRERELEASE=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: Publish standalone Android release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'schedule' && 'v3.2.0' || inputs.release_tag || github.ref_name }}
+          name: Moon Launcher Android ${{ github.event_name == 'schedule' && 'v3.2.0' || inputs.release_tag || github.ref_name }}
+          prerelease: ${{ env.IS_PRERELEASE == 'true' }}
+          generate_release_notes: true
+          files: |
+            release-artifacts/Moon-Launcher-${{ github.event_name == 'schedule' && 'v3.2.0' || inputs.release_tag || github.ref_name }}-Android-*.apk
+            release-artifacts/SHA256SUMS.txt
+            android/THIRD_PARTY_NOTICES.md

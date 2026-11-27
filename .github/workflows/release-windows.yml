@@ -1,0 +1,162 @@
+name: Windows Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Windows release tag
+        required: true
+        type: string
+        default: windows-v2.1.3
+  push:
+    tags:
+      - 'windows-v*'
+  schedule:
+    - cron: '0 0 1 12 *'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Check out Moon Launcher
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.10.0
+
+      - name: Resolve release version
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'schedule' && 'windows-v3.2.0' || inputs.release_tag || github.ref_name }}
+        run: |
+          $version = $env:RELEASE_TAG -replace '^windows-v', ''
+          $isPrerelease = $version -match '-beta\.\d+$'
+          "RELEASE_VERSION=$version" >> $env:GITHUB_ENV
+          "IS_PRERELEASE=$($isPrerelease.ToString().ToLowerInvariant())" >> $env:GITHUB_ENV
+
+      - name: Check out pinned XMCL runtime
+        shell: pwsh
+        run: |
+          $source = Join-Path $env:RUNNER_TEMP 'xmcl'
+          git clone --filter=blob:none https://github.com/Voxelum/x-minecraft-launcher.git $source
+          git -C $source checkout 9f1354bd6dc74e76ef9eebcb6a424f48bf3ca064
+          "XMCL_SOURCE=$source" >> $env:GITHUB_ENV
+
+      - name: Install XMCL workspace dependencies
+        shell: pwsh
+        run: |
+          Set-Location $env:XMCL_SOURCE
+          pnpm install --frozen-lockfile
+
+      - name: Apply Moon branding and license notices
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'schedule' && 'windows-v3.2.0' || inputs.release_tag || github.ref_name }}
+        run: node windows/rebrand-xmcl.mjs "$env:XMCL_SOURCE" "$env:RELEASE_TAG"
+
+      - name: Verify CurseForge API connection
+        shell: pwsh
+        env:
+          CURSEFORGE_API_KEY: ${{ secrets.api_key_curseforge || secrets.API_KEY_CURSEFORGE || secrets.CURSEFORGE_API_KEY || secrets.CURSEFORGE_API_TOKEN }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:CURSEFORGE_API_KEY)) {
+            Write-Warning 'CurseForge secret is not configured; Modrinth-only fallback will be used.'
+          } else {
+            $headers = @{ 'x-api-key' = $env:CURSEFORGE_API_KEY; Accept = 'application/json' }
+            try {
+              Invoke-RestMethod -Uri 'https://api.curseforge.com/v1/categories?gameId=432' -Headers $headers -TimeoutSec 30 | Out-Null
+              Write-Host 'CurseForge API key verified.'
+            } catch {
+              throw "CurseForge API verification failed (HTTP $($_.Exception.Response.StatusCode.value__))"
+            }
+          }
+
+      - name: Build Windows installer
+        env:
+          CURSEFORGE_API_KEY: ${{ secrets.api_key_curseforge || secrets.API_KEY_CURSEFORGE || secrets.CURSEFORGE_API_KEY || secrets.CURSEFORGE_API_TOKEN }}
+        shell: pwsh
+        run: |
+          Set-Location $env:XMCL_SOURCE
+          pnpm install --no-frozen-lockfile
+          pnpm run build:renderer
+          $env:BUILD_TARGET = 'windows'
+          pnpm run build
+          $destination = Join-Path $env:GITHUB_WORKSPACE 'windows/dist'
+          New-Item -ItemType Directory -Force $destination | Out-Null
+          Copy-Item 'xmcl-electron-app/build/output/*.exe' $destination
+          Copy-Item 'xmcl-electron-app/build/Moon-Third-Party-Notices.txt' $destination
+
+      - name: Sign and verify Windows installer
+        if: ${{ !contains(github.event_name == 'schedule' && 'windows-v3.2.0' || inputs.release_tag || github.ref_name, '-beta.') }}
+        shell: pwsh
+        env:
+          WINDOWS_SIGNING_CERT_BASE64: ${{ secrets.WINDOWS_SIGNING_CERT_BASE64 }}
+          WINDOWS_SIGNING_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERT_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERT_BASE64)) {
+            throw 'Set WINDOWS_SIGNING_CERT_BASE64 and WINDOWS_SIGNING_CERT_PASSWORD in repository Actions secrets before releasing.'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERT_PASSWORD)) {
+            throw 'WINDOWS_SIGNING_CERT_PASSWORD is missing.'
+          }
+
+          $certificatePath = Join-Path $env:RUNNER_TEMP 'moon-code-signing.pfx'
+          try {
+            $certificateBytes = [Convert]::FromBase64String(($env:WINDOWS_SIGNING_CERT_BASE64 -replace '\s', ''))
+            [IO.File]::WriteAllBytes($certificatePath, $certificateBytes)
+
+            $programFilesX86 = [Environment]::GetEnvironmentVariable('ProgramFiles(x86)')
+            $sdkBin = Join-Path $programFilesX86 'Windows Kits\10\bin'
+            $signTool = Get-ChildItem -Path $sdkBin -Filter signtool.exe -Recurse |
+              Where-Object { $_.FullName -match '\\x64\\signtool\.exe$' } |
+              Sort-Object { [version]$_.Directory.Parent.Name } -Descending |
+              Select-Object -First 1
+            if (-not $signTool) { throw 'Windows SDK signtool.exe was not found.' }
+
+            $installers = @(Get-ChildItem -Path 'windows/dist' -Filter '*-x64.exe')
+            if ($installers.Count -ne 1) { throw "Expected one x64 installer, found $($installers.Count)." }
+            $installer = $installers[0]
+            & $signTool.FullName sign /fd SHA256 /td SHA256 /tr 'http://timestamp.digicert.com' /f $certificatePath /p $env:WINDOWS_SIGNING_CERT_PASSWORD /d 'Moon Launcher x64' $installer.FullName
+            if ($LASTEXITCODE -ne 0) { throw 'Authenticode signing failed for x64.' }
+            & $signTool.FullName verify /pa /all /v $installer.FullName
+            if ($LASTEXITCODE -ne 0) { throw 'Authenticode verification failed for x64; release was stopped.' }
+          } finally {
+            Remove-Item $certificatePath -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Validate and checksum Windows installer
+        shell: pwsh
+        run: |
+          node scripts/validate-release.mjs windows '${{ github.event_name == 'schedule' && 'windows-v3.2.0' || inputs.release_tag || github.ref_name }}' windows/dist
+          $artifact = Get-ChildItem windows/dist -Filter '*.exe'
+          Get-FileHash -Algorithm SHA256 $artifact.FullName |
+            ForEach-Object { '{0}  {1}' -f $_.Hash.ToLowerInvariant(), $_.Path.Replace((Resolve-Path windows/dist).Path + [IO.Path]::DirectorySeparatorChar, '') } |
+            Set-Content windows/dist/SHA256SUMS.txt
+
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MoonLauncher-v${{ env.RELEASE_VERSION }}-Windows
+          path: windows/dist/*
+
+      - name: Publish Windows release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'schedule' && 'windows-v3.2.0' || inputs.release_tag || github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          name: Moon Launcher v${{ env.RELEASE_VERSION }}
+          prerelease: ${{ env.IS_PRERELEASE == 'true' }}
+          generate_release_notes: true
+          files: windows/dist/*

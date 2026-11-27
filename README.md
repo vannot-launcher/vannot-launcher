@@ -1,44 +1,41 @@
-# Vannot Launcher
+# Moon Launcher
 
-Vannot Launcher **v1.0.2 stabil** adalah launcher desktop Windows untuk Minecraft Java Edition. Launcher memasang dan menjalankan game Vanilla serta loader yang tersedia untuk versi Minecraft pilihan. Identitas visualnya memakai logo Vannot orisinal dan gaya launcher mod modern; bukan salinan aset atau merek Modrinth.
+Moon Launcher has separate native runtimes for Windows and Android. The Windows release is built from pinned XMCL source; the Android beta APK bundles a standalone Minecraft Java runtime built from pinned Amethyst source. The React/Vite app in this repository is a legacy web shell, not the runtime used by either native release.
 
-## Menjalankan
+The Android beta APK uses pinned Zalith Launcher 1 source as its base and does not require a separate Zalith or Pojav app to be installed. Moon applies its own identity and launcher controls to the bundled runtime. It includes Microsoft and offline account flows, touch controls, and `.mrpack` support. Ely.by login is not supported in the pinned Android runtime.
 
-Perlu Node.js 24 atau lebih baru. Runtime game tetap Minecraft Java Edition resmi; launcher bukan pengganti atau salinan client Minecraft.
+The Windows and Linux XMCL runtimes use Modrinth and CurseForge for catalog downloads. Modrinth remains the fallback catalog if CurseForge is unavailable; `CURSEFORGE_API_KEY` or `CURSEFORGE_API_TOKEN` must be configured as a repository Actions secret. The web shell in this repository is not the Windows or Linux UI and does not launch Minecraft.
 
-```sh
-npm install
-npm start
-```
 
-Dashboard mengambil daftar semua versi langsung dari manifest Mojang—rilis, snapshot, dan versi legacy—dengan filter kategori serta penanda rilis/snapshot terbaru. Latar dashboard memakai animasi CSS ringan dan menghormati preferensi reduced motion sistem. Daftar Fabric, Quilt, Forge, NeoForge, serta OptiFine diambil dari layanan resminya. Login Microsoft memeriksa kepemilikan Minecraft Java Edition. Login Ely.by memakai endpoint Yggdrasil HTTPS resmi dan authlib-injector; password tidak disimpan. Launcher memasang file, library, dan Java yang cocok sebelum menjalankan game. Data Vanilla disimpan di `%APPDATA%/.minecraft`; loader memakai direktori instance terpisah. OptiFine adalah instalasi terpisah dan bisa tidak kompatibel dengan mod tertentu.
+Android standalone beta APKs are built by the `Android Standalone Launcher Release` GitHub Actions workflow. It installs its own Android SDK, JDK 21, native build dependencies, and game Java runtime.
 
-Katalog Mod, Modpacks, Resource packs, dan Shaders mencari konten kompatibel di Modrinth; Mod, Resource packs, dan Shaders juga dapat dicari di CurseForge. Modrinth dapat dipakai langsung; CurseForge mensyaratkan API key resmi yang disimpan terenkripsi oleh OS. Unduhan diverifikasi dengan HTTPS, ukuran, dan checksum. Sebelum konten dipasang, launcher meminta izin Administrator Windows untuk memindai satu batch dengan Microsoft Defender; konten ditahan di staging sampai pemindaian berhasil. Modpack Modrinth memasang file client dan konfigurasi yang didukung ke instance terpilih setelah memasang versi Minecraft dan loader yang cocok.
-
-## Keamanan dan batas perlindungan
-
-- Microsoft Defender harus aktif dan diperbarui. Jika Defender tidak tersedia, pemindaian gagal, atau permintaan UAC ditolak, konten pihak ketiga tidak dipasang.
-- Mod dan modpack pihak ketiga menjalankan kode di dalam Minecraft. HTTPS/checksum memverifikasi jalur unduhan dan integritas file, bukan bahwa pembuat konten dapat dipercaya.
-- Antivirus tidak dapat menjamin deteksi semua ancaman. Tidak ada cara untuk menjanjikan launcher 100% bebas virus; tetap gunakan perlindungan Windows yang aktif dan unduh konten dari pembuat yang tepercaya.
-- Versi installer resmi dapat diverifikasi memakai `SHA256SUMS.txt` yang disertakan pada halaman GitHub Releases.
-- Pemindaian memakai [Microsoft Defender MpCmdRun](https://learn.microsoft.com/en-us/defender-endpoint/command-line-arguments-microsoft-defender-antivirus); persetujuan UAC hanya dipakai untuk menjalankan pemindaian khusus.
-
-## Status fitur
-
-- Berfungsi: instalasi/launch Vanilla, Fabric, Quilt, Forge, NeoForge, dan OptiFine; login Microsoft dan Ely.by; runtime Java yang sesuai untuk versi game (dipasang otomatis di Windows bila diperlukan); katalog/download mod, modpack Modrinth, resource pack, dan shader.
-- Belum tersedia: login offline, provider Yggdrasil yang dapat dikonfigurasi, skin/cape, download world, dan pengaturan performa.
-- Windows 32-bit dapat menjalankan versi lama dengan Java 8. Minecraft modern memerlukan Java 64-bit dan Windows x64.
-- Klaim unduhan 90% lebih cepat atau FPS tertentu tidak dijanjikan; hasil bergantung jaringan dan perangkat.
-
-## Rilis stabil Windows
+The legacy Capacitor web shell can still be built locally with:
 
 ```sh
-npm run dist:win
+npm ci
+npm run dev
+npm run build
 ```
 
-Perintah ini menghasilkan installer NSIS Windows x64 dengan ikon Vannot. Sebelum build rilis, GitHub Actions menjalankan tes aplikasi dan memasang Minecraft 1.21.1 dari manifest Mojang, lalu mencocokkan SHA-1 JAR game dengan metadata resmi. Untuk merilis versi stabil, kirim tag versi tanpa akhiran prerelease; workflow mengunggah installer Windows sebagai release stabil. Tag yang mengandung `-` (misalnya `-beta`) tidak menerbitkan release.
+This builds the legacy web shell only; it does not install or launch Minecraft. The native Windows launcher is assembled by the Windows Release workflow from its pinned XMCL source.
 
-```sh
-git tag v1.0.2
-git push origin v1.0.2
-```
+Voice rooms, private chat, and group chat are not included in Moon Launcher. Microsoft login needs a registered OAuth application, and payments need a provider and server-side entitlement checks.
+
+Cloudflare Tunnel exposes a service running elsewhere; it does not host the website or guarantee faster rendering/downloads. Cloudflare Pages/Workers and object storage can host those parts, but actual speed depends on the origin, network, region, and assets. Minecraft FPS likewise depends on the device and game settings; the launcher cannot guarantee 500–1000 FPS.
+
+## Windows Release
+
+The Windows build uses a pinned XMCL desktop runtime and is released separately from Android. Moon Launcher v2.1.3-beta.2 targets Windows 10 version 1903 or later and Windows 11 x64, and publishes an x64 installer only. The release adds a branded home dashboard, a real launch button, Modrinth shortcuts for mods, modpacks, resource packs, shaders, and data packs, installed-content management, and `.mrpack` import. Sidebar shortcuts and instances now share a visible scroll area, and navigation targets are larger. Java auto-selection supports compatible Java 17, 21, and 25 runtimes based on the selected Minecraft version; legacy game versions retain their own Java requirements. Login offers Microsoft, offline, Ely.by, and LittleSkin quick choices; additional Yggdrasil services can be added through the built-in service manager and are saved by the launcher.
+
+Windows catalog releases require an official `CURSEFORGE_API_KEY` or `CURSEFORGE_API_TOKEN` repository Actions secret so the installer can connect to both catalogs without embedding credentials. Stable Windows releases also require the trusted code-signing secrets described in [`windows/CODE_SIGNING.md`](windows/CODE_SIGNING.md). Beta prereleases can be published unsigned for testing and may trigger SmartScreen warnings. They produce a versioned `MoonLauncher-v*-x64.exe` installer. The upstream MIT notice is included with every release.
+
+## Linux Release
+
+The Linux build uses the same pinned XMCL runtime and Moon dashboard, packaged as an x64 AppImage. It uses the `moon-launcher` executable name, Moon icon, and `noom://` scheme. `CURSEFORGE_API_KEY` or `CURSEFORGE_API_TOKEN` must be configured as a repository Actions secret. Push a `linux-v*` tag or run the `Linux Release` workflow to build and publish the AppImage with a SHA-256 checksum. Linux builds are unsigned.
+
+## GitHub Release
+
+The beta APK is debug-signed for direct testing/sideloading, not Google Play distribution. Debug signing is not a stable update key across fresh CI runners, so APKs may require uninstalling the prior test build before installing a new one. Pushing a `v*` tag starts an Android release build; the workflow can also be run manually with a release tag.
+
+
+Windows uses `windows-v*` tags and publishes separately.

@@ -11,12 +11,7 @@ const names = {
 };
 
 const views = {
-  library: ['Library', 'Belum ada instalasi Minecraft yang terhubung.', 'Instalasi game belum tersedia di preview ini.'],
-  mods: ['Mods', 'Kelola mod dalam satu tempat.', 'Pengunduh dan pengelola mod akan tersedia setelah integrasi instalasi selesai.'],
-  'resource-packs': ['Resource packs', 'Atur tampilan duniamu.', 'Pengelola resource pack belum aktif di preview ini.'],
-  shaders: ['Shaders', 'Ubah pencahayaan dan suasana game.', 'Pengelola shader belum aktif di preview ini.'],
-  worlds: ['Worlds', 'Simpan dan temukan duniamu.', 'Pengelola world belum aktif di preview ini.'],
-  settings: ['Pengaturan', 'Preferensi launcher', 'Pengaturan Java, memori, dan performa belum tersedia di preview ini.']
+  worlds: ['Worlds', 'Simpan dan temukan duniamu.', 'Pengelolaan world belum tersedia. File save dapat dibuka dari folder .minecraft/saves.']
 };
 
 const pageContent = document.querySelector('#page-content');
@@ -56,6 +51,12 @@ function showView(view) {
     renderFileBrowser();
     return;
   }
+  if (view === 'library') {
+    breadcrumb.textContent = names.library;
+    document.querySelectorAll('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.view === view));
+    renderLibraryView();
+    return;
+  }
   if (view === 'mods') {
     breadcrumb.textContent = names.mods;
     document.querySelectorAll('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.view === view));
@@ -88,7 +89,7 @@ function showView(view) {
   });
   pageContent.innerHTML = `
     <div class="welcome-row">
-      <div><p class="eyebrow">VANNOT LAUNCHER <span class="eyebrow-line"></span> ${view === 'settings' ? 'PENGATURAN' : 'SEGERA HADIR'}</p><h1>${title}</h1></div>
+      <div><p class="eyebrow">VANNOT LAUNCHER <span class="eyebrow-line"></span> SEGERA HADIR</p><h1>${title}</h1></div>
       <button class="text-button" data-action="open-folder"><span>⌁</span> Buka folder game</button>
     </div>
     <section class="empty-view"><div class="empty-content">
@@ -101,6 +102,58 @@ function showView(view) {
   pageContent.querySelectorAll('[data-action="open-folder"]').forEach((button) => {
     button.addEventListener('click', openMinecraftFolder);
   });
+}
+
+async function renderLibraryView() {
+  pageContent.innerHTML = `
+    <div class="welcome-row">
+      <div><p class="eyebrow">INSTANCE MINECRAFT <span class="eyebrow-line"></span> TERSIMPAN</p><h1>Library</h1></div>
+      <button class="play-button" id="library-dashboard-button">Pasang versi baru</button>
+    </div>
+    <section class="library-list" id="library-list"><div class="empty-view"><div class="empty-content"><p>Memeriksa instalasi Minecraft...</p></div></div></section>
+    <footer class="page-footer"><span>INSTANCE DIPASANG DARI MANIFEST RESMI MINECRAFT</span><span id="library-count">MEMERIKSA</span></footer>`;
+  document.querySelector('#library-dashboard-button').addEventListener('click', showDashboard);
+
+  const list = document.querySelector('#library-list');
+  const count = document.querySelector('#library-count');
+  try {
+    const instances = await window.dinasti.listInstalledInstances();
+    if (!instances.length) {
+      list.innerHTML = `<section class="empty-view"><div class="empty-content"><span class="empty-symbol">▤</span><h2>Belum ada instalasi</h2><p>Pilih versi resmi di Dashboard, lalu tekan Login &amp; main untuk mengunduh Minecraft dan memulai game.</p><button id="empty-library-dashboard">Buka Dashboard</button></div></section>`;
+      list.querySelector('#empty-library-dashboard').addEventListener('click', showDashboard);
+    } else {
+      list.replaceChildren(...instances.map((instance) => {
+        const row = document.createElement('article');
+        row.className = 'library-instance';
+        const copy = document.createElement('div');
+        copy.className = 'library-instance-copy';
+        const title = document.createElement('strong');
+        title.textContent = instance.minecraftVersion;
+        const details = document.createElement('small');
+        details.textContent = `${instance.loader}${instance.loaderVersion ? ` ${instance.loaderVersion}` : ''} · ID game ${instance.installedVersion}`;
+        copy.append(title, details);
+        const play = document.createElement('button');
+        play.className = 'manage-button mod-install-button';
+        play.type = 'button';
+        play.textContent = 'Pilih & main';
+        play.addEventListener('click', () => {
+          localStorage.setItem('dinasti.selectedVersion', instance.minecraftVersion);
+          localStorage.setItem('dinasti.selectedLoader', instance.loader);
+          if (instance.loaderVersion) {
+            localStorage.setItem(`dinasti.loader.${instance.minecraftVersion}.${instance.loader}`, instance.loaderVersion);
+          }
+          showDashboard();
+        });
+        row.append(copy, play);
+        return row;
+      }));
+    }
+    count.textContent = `${instances.length} INSTANCE`;
+  } catch (error) {
+    list.innerHTML = `<section class="empty-view"><div class="empty-content"><h2>Instalasi tidak dapat dimuat</h2><p>${escapeHtml(error.message)}</p><button id="retry-library">Coba lagi</button></div></section>`;
+    list.querySelector('#retry-library').addEventListener('click', renderLibraryView);
+    count.textContent = 'ERROR';
+  }
 }
 
 function renderModsView(contentType = 'mod') {

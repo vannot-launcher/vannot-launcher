@@ -1,12 +1,13 @@
 {
   "name": "vannot-launcher",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Vannot Minecraft Java Launcher",
   "author": "Vannot",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "test": "node --test",
+    "test:official-install": "node scripts/minecraft-install-smoke.js",
     "dist:win": "electron-builder --win nsis --x64 --publish never"
   },
   "devDependencies": {
@@ -44,6 +45,7 @@
     "msmc": "^5.0.5"
   },
   "overrides": {
+    "@xmcl/file-transfer": "2.1.4",
     "@xmcl/unzip": "2.1.2",
     "undici": "7.30.1"
   }

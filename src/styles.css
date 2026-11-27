@@ -174,6 +174,11 @@ select:focus { border-color: #8ea964; }
 .mod-result-copy p { overflow: hidden; margin: 0 0 5px; color: #929c8b; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .mod-result-copy small { color: #74806d; font-family: var(--mono); font-size: 8px; }
 .mod-install-button { flex: 0 0 auto; padding: 8px 11px; border: 1px solid #526543; border-radius: 3px; }
+.library-list { display: grid; gap: 10px; }
+.library-instance { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 82px; padding: 16px 18px; border: 1px solid #27382b; border-radius: 10px; background: #111a14; }
+.library-instance-copy { display: grid; gap: 7px; }
+.library-instance-copy strong { color: #eef5eb; font-size: 15px; }
+.library-instance-copy small { color: #91a092; font-size: 10px; }
 .settings-page { border-top: 1px solid #2b342a; }
 .settings-section { display: grid; grid-template-columns: minmax(200px, .8fr) minmax(280px, 1fr); gap: 30px; max-width: 900px; padding: 24px 0; border-bottom: 1px solid #2b342a; }
 .settings-section h2 { margin: 0 0 7px; font-size: 15px; }

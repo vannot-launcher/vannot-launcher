@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('dinasti', {
   getVersions: () => ipcRenderer.invoke('launcher:get-versions'),
   getJavaRuntimeStatus: (versionId) => ipcRenderer.invoke('launcher:get-java-status', versionId),
   getLoaderVersions: (minecraftVersion, loader) => ipcRenderer.invoke('launcher:get-loader-versions', minecraftVersion, loader),
+  listInstalledInstances: () => ipcRenderer.invoke('launcher:list-installed-instances'),
   searchContent: (source, query, selection, contentType) => ipcRenderer.invoke('launcher:search-content', { source, query, selection, contentType }),
   installContent: (source, id, selection, contentType) => ipcRenderer.invoke('launcher:install-content', { source, id, selection, contentType }),
   curseForgeKeyStatus: () => ipcRenderer.invoke('launcher:curseforge-key-status'),

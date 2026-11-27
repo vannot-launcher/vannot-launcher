@@ -1,6 +1,6 @@
 # Vannot Launcher
 
-Vannot Launcher **v1.0.1 stabil** adalah launcher desktop Windows untuk Minecraft Java Edition. Launcher memasang dan menjalankan game Vanilla serta loader yang tersedia untuk versi Minecraft pilihan. Identitas visualnya memakai logo Vannot orisinal dan gaya launcher mod modern; bukan salinan aset atau merek Modrinth.
+Vannot Launcher **v1.0.2 stabil** adalah launcher desktop Windows untuk Minecraft Java Edition. Launcher memasang dan menjalankan game Vanilla serta loader yang tersedia untuk versi Minecraft pilihan. Identitas visualnya memakai logo Vannot orisinal dan gaya launcher mod modern; bukan salinan aset atau merek Modrinth.
 
 ## Menjalankan
 
@@ -36,9 +36,9 @@ Katalog Mod, Modpacks, Resource packs, dan Shaders mencari konten kompatibel di 
 npm run dist:win
 ```
 
-Perintah ini menghasilkan installer NSIS Windows x64 dengan ikon Vannot. Untuk merilis versi stabil, kirim tag versi tanpa akhiran prerelease; GitHub Actions menguji aplikasi dan mengunggah installer Windows sebagai release stabil. Tag yang mengandung `-` (misalnya `-beta`) tidak menerbitkan release.
+Perintah ini menghasilkan installer NSIS Windows x64 dengan ikon Vannot. Sebelum build rilis, GitHub Actions menjalankan tes aplikasi dan memasang Minecraft 1.21.1 dari manifest Mojang, lalu mencocokkan SHA-1 JAR game dengan metadata resmi. Untuk merilis versi stabil, kirim tag versi tanpa akhiran prerelease; workflow mengunggah installer Windows sebagai release stabil. Tag yang mengandung `-` (misalnya `-beta`) tidak menerbitkan release.
 
 ```sh
-git tag v1.0.1
-git push origin v1.0.1
+git tag v1.0.2
+git push origin v1.0.2
 ```

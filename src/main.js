@@ -117,6 +117,18 @@ ipcMain.handle('launcher:get-java-status', async (_event, versionId) => getJavaR
 ipcMain.handle('launcher:get-loader-versions', async (_event, minecraftVersion, loader) => {
   return listLoaderVersions(minecraftVersion, loader);
 });
+ipcMain.handle('launcher:list-installed-instances', async () => {
+  const instances = await getInstalledInstances();
+  return Object.entries(instances).flatMap(([key, installedVersion]) => {
+    try {
+      const [minecraftVersion, loader, loaderVersion = ''] = JSON.parse(key);
+      if (typeof minecraftVersion !== 'string' || typeof installedVersion !== 'string') return [];
+      return [{ minecraftVersion, installedVersion, loader: loader || 'Vanilla', loaderVersion }];
+    } catch {
+      return [];
+    }
+  }).sort((first, second) => second.minecraftVersion.localeCompare(first.minecraftVersion, undefined, { numeric: true }));
+});
 ipcMain.handle('launcher:search-content', async (_event, { source, query, selection, contentType = 'mod' }) => {
   if (source === 'Modrinth') return searchModrinthContent(query, selection, contentType);
   if (source === 'CurseForge') return searchCurseForgeContent(query, selection, await getCurseForgeKey(), contentType);

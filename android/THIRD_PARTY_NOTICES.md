@@ -1,6 +1,7 @@
-The Android release workflow builds a standalone Minecraft Java runtime based on ZalithLauncher2. No Vannot-branded Android build has been published.
+The Android application shell is authored for Vannot and does not include or rebrand another Minecraft launcher.
 
-Source: https://github.com/ZalithLauncher/ZalithLauncher2
-License: GNU General Public License v3.0 (GPL-3.0)
+Dependency: AndroidX AppCompat 1.7.1
+License: Apache License 2.0
+Source: https://developer.android.com/jetpack/androidx
 
-The pinned upstream source is modified by android/rebrand-zalith.mjs for the Vannot application identity and assets. The runtime and its modifications remain subject to GPL-3.0; the source and build instructions are available from the linked repository and this Vannot repository.
+This development foundation does not yet include a Minecraft Java runtime or game files.

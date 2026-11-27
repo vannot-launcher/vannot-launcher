@@ -2,6 +2,4 @@
 <resources>
     <string name="app_name">Vannot Launcher</string>
     <string name="title_activity_main">Vannot Launcher</string>
-    <string name="package_name">id.vannot.launcher</string>
-    <string name="custom_url_scheme">id.vannot.launcher</string>
 </resources>

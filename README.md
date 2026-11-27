@@ -11,7 +11,7 @@ Vannot keeps the native XMCL runtime approach and applies a new Vannot identity 
 ## Native builds
 
 - **Windows and Linux:** built from pinned XMCL source by the Windows and Linux GitHub Actions workflows. The runtime source is pinned in `windows/rebrand-xmcl.mjs`.
-- **Android:** no independent Vannot Minecraft launcher APK has been released. The former Android workflow rebadged Zalith Launcher and is now paused; a new native Kotlin app and Android-compatible Minecraft runtime must be implemented and device-tested before publishing.
+- **Android:** a native Kotlin Vannot app foundation is being built without another launcher's source or APK. It does not yet contain a Minecraft runtime or install/launch game files; Android publishing stays paused until the runtime and device testing are complete.
 - Third-party notices and required upstream licenses are included in [Windows notices](windows/THIRD_PARTY_NOTICES.md) and [Android notices](android/THIRD_PARTY_NOTICES.md).
 
 Do not treat a successful CI build as proof that account login or Minecraft gameplay has been interactively tested. Validate those flows on the target platform before publishing a release.

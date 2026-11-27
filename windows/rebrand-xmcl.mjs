@@ -154,6 +154,7 @@ await replaceOnce(
 const loginForm = path.join(renderer, 'src/components/UserLoginForm.vue');
 const homeView = path.join(renderer, 'src/views/Home.vue');
 const sidebarView = path.join(renderer, 'src/views/AppSideBarClassic.vue');
+const launchStatusDialog = path.join(renderer, 'src/views/HomeLaunchStatusDialog.vue');
 const vuetifyConfig = path.join(renderer, 'src/vuetify.ts');
 const searchModel = path.join(renderer, 'src/composables/search.ts');
 await replaceOnce(
@@ -242,10 +243,23 @@ await replaceOnce(
                 <span class="vannot-hero__separator">/</span>
                 <span>{{ t('instance.name', 1) }}</span>
               </div>
-              <v-btn data-testid="vannot-play" color="primary" size="large" variant="flat" class="vannot-hero__play mt-5" @click="onLaunchClick()">
-                <v-icon start>play_arrow</v-icon>
-                {{ launchText }}
-              </v-btn>
+              <div class="vannot-hero__actions">
+                <v-btn data-testid="vannot-play" color="primary" size="large" variant="flat" class="vannot-hero__play" @click="onLaunchClick()">
+                  <v-icon start>play_arrow</v-icon>
+                  {{ launchText }}
+                </v-btn>
+                <v-btn
+                  data-testid="vannot-discover-mods"
+                  color="white"
+                  size="large"
+                  variant="outlined"
+                  class="vannot-hero__discover"
+                  :to="{ path: '/mods', query: { source: 'remote' } }"
+                >
+                  <v-icon start>extension</v-icon>
+                  {{ t('store.discover') }}
+                </v-btn>
+              </div>
             </div>
           </section>
           <section class="vannot-quick-access mx-3 mb-8 grid gap-4" data-testid="vannot-quick-access">
@@ -264,6 +278,7 @@ await replaceOnce(
                   block
                   variant="tonal"
                   color="primary"
+                  append-icon="arrow_forward"
                   class="vannot-action-button min-h-12 justify-start text-left"
                 >
                   <v-icon start class="vannot-action-button__icon">{{ action.icon }}</v-icon>
@@ -598,6 +613,24 @@ await replaceOnce(
   font-weight: 750;
 }
 
+.vannot-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.vannot-hero__discover {
+  min-height: 50px;
+  border-color: rgba(243, 244, 236, 0.32);
+  border-radius: 6px;
+  color: #f3f4ec;
+}
+
+.vannot-hero__discover:hover {
+  background: rgba(243, 244, 236, 0.08);
+}
+
 .vannot-quick-access {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -643,8 +676,14 @@ await replaceOnce(
 .vannot-action-button {
   justify-content: flex-start;
   min-width: 0;
+  min-height: 58px;
   padding-inline: 12px;
   text-align: left;
+  transition: background-color 140ms ease, transform 140ms ease;
+}
+
+.vannot-action-button:hover {
+  transform: translateY(-1px);
 }
 
 .vannot-action-button .vannot-action-button__icon {
@@ -715,6 +754,79 @@ await replaceOnce(
   .vannot-hero h1 {
     font-size: 28px;
   }
+
+  .vannot-hero__discover,
+  .vannot-hero__play {
+    min-width: 0;
+    padding-inline: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vannot-action-button {
+    transition: none;
+  }
+
+  .vannot-action-button:hover {
+    transform: none;
+  }
+}
+</style>`,
+);
+await replaceOnce(
+  launchStatusDialog,
+  "import VTypical from '@/components/VTyping.vue'\n",
+  '',
+);
+await replaceOnce(
+  launchStatusDialog,
+  `            <VTypical
+              class="blink"
+              :steps="launchingSteps"
+            />
+            <div
+              v-if="hint"
+              class="transition-all"
+              :class="{ 'text-gray-500': launchingStatus !== '', 'text-transparent': !launchingStatus }"
+            >
+              {{ hint + '...' }}
+            </div>`,
+  `            <div class="vannot-launch-status" role="status" aria-live="polite">
+              {{ hint || t('launchStatus.launching') }}
+            </div>`,
+);
+await replaceOnce(
+  launchStatusDialog,
+  `const launchingSteps = computed(() => [
+  t('launchStatus.launching'),
+  4000,
+  t('launchStatus.launchingSlow'),
+])
+
+`,
+  '',
+);
+await replaceOnce(
+  launchStatusDialog,
+  `<style scoped="true">
+.blink::after {
+  content: '|';
+  animation: blink 1s infinite step-start;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+</style>`,
+  `<style scoped="true">
+.vannot-launch-status {
+  min-height: 1.5em;
+  color: rgb(var(--v-theme-on-surface));
+  font-size: 14px;
+  font-weight: 650;
+  text-align: center;
 }
 </style>`,
 );

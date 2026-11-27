@@ -1,15 +1,22 @@
-# Moon Launcher
+# Vannot Launcher
 
-Moon Launcher has separate native runtimes for Windows and Android. The Windows release is built from pinned XMCL source; the Android beta APK bundles a standalone Minecraft Java runtime built from pinned Amethyst source. The React/Vite app in this repository is a legacy web shell, not the runtime used by either native release.
+Vannot Launcher is a Minecraft Java Edition launcher project. Native game runtime code is built from pinned upstream launcher projects; the React/Vite application in `src/` is a web preview and does not install or launch Minecraft.
 
-The Android beta APK uses pinned Zalith Launcher 1 source as its base and does not require a separate Zalith or Pojav app to be installed. Moon applies its own identity and launcher controls to the bundled runtime. It includes Microsoft and offline account flows, touch controls, and `.mrpack` support. Ely.by login is not supported in the pinned Android runtime.
+## Current status
 
-The Windows and Linux XMCL runtimes use Modrinth and CurseForge for catalog downloads. Modrinth remains the fallback catalog if CurseForge is unavailable; `CURSEFORGE_API_KEY` or `CURSEFORGE_API_TOKEN` must be configured as a repository Actions secret. The web shell in this repository is not the Windows or Linux UI and does not launch Minecraft.
+The Vannot rebrand and release workflows are being prepared. **There is no public Vannot installer yet.** The earlier public Windows beta was released with Moon Launcher branding and must not be presented as a Vannot build. The download portal intentionally links to this source repository instead of that older installer.
 
+Vannot keeps the native XMCL runtime approach and applies a new Vannot identity and dashboard. The source adaptations are made with permission from the Moon Launcher developer. Minecraft and Mojang are not affiliated with this project.
 
-Android standalone beta APKs are built by the `Android Standalone Launcher Release` GitHub Actions workflow. It installs its own Android SDK, JDK 21, native build dependencies, and game Java runtime.
+## Native builds
 
-The legacy Capacitor web shell can still be built locally with:
+- **Windows and Linux:** built from pinned XMCL source by the Windows and Linux GitHub Actions workflows. The runtime source is pinned in `windows/rebrand-xmcl.mjs`.
+- **Android:** the standalone Android workflow builds its pinned Zalith Launcher runtime. A Vannot-branded Android build has not been published.
+- Third-party notices and required upstream licenses are included in [Windows notices](windows/THIRD_PARTY_NOTICES.md) and [Android notices](android/THIRD_PARTY_NOTICES.md).
+
+Do not treat a successful CI build as proof that account login or Minecraft gameplay has been interactively tested. Validate those flows on the target platform before publishing a release.
+
+## Web preview
 
 ```sh
 npm ci
@@ -17,25 +24,8 @@ npm run dev
 npm run build
 ```
 
-This builds the legacy web shell only; it does not install or launch Minecraft. The native Windows launcher is assembled by the Windows Release workflow from its pinned XMCL source.
+This builds the web preview only. It is not a Minecraft runtime.
 
-Voice rooms, private chat, and group chat are not included in Moon Launcher. Microsoft login needs a registered OAuth application, and payments need a provider and server-side entitlement checks.
+## Release requirements
 
-Cloudflare Tunnel exposes a service running elsewhere; it does not host the website or guarantee faster rendering/downloads. Cloudflare Pages/Workers and object storage can host those parts, but actual speed depends on the origin, network, region, and assets. Minecraft FPS likewise depends on the device and game settings; the launcher cannot guarantee 500–1000 FPS.
-
-## Windows Release
-
-The Windows build uses a pinned XMCL desktop runtime and is released separately from Android. Moon Launcher v2.1.3-beta.2 targets Windows 10 version 1903 or later and Windows 11 x64, and publishes an x64 installer only. The release adds a branded home dashboard, a real launch button, Modrinth shortcuts for mods, modpacks, resource packs, shaders, and data packs, installed-content management, and `.mrpack` import. Sidebar shortcuts and instances now share a visible scroll area, and navigation targets are larger. Java auto-selection supports compatible Java 17, 21, and 25 runtimes based on the selected Minecraft version; legacy game versions retain their own Java requirements. Login offers Microsoft, offline, Ely.by, and LittleSkin quick choices; additional Yggdrasil services can be added through the built-in service manager and are saved by the launcher.
-
-Windows catalog releases require an official `CURSEFORGE_API_KEY` or `CURSEFORGE_API_TOKEN` repository Actions secret so the installer can connect to both catalogs without embedding credentials. Stable Windows releases also require the trusted code-signing secrets described in [`windows/CODE_SIGNING.md`](windows/CODE_SIGNING.md). Beta prereleases can be published unsigned for testing and may trigger SmartScreen warnings. They produce a versioned `MoonLauncher-v*-x64.exe` installer. The upstream MIT notice is included with every release.
-
-## Linux Release
-
-The Linux build uses the same pinned XMCL runtime and Moon dashboard, packaged as an x64 AppImage. It uses the `moon-launcher` executable name, Moon icon, and `noom://` scheme. `CURSEFORGE_API_KEY` or `CURSEFORGE_API_TOKEN` must be configured as a repository Actions secret. Push a `linux-v*` tag or run the `Linux Release` workflow to build and publish the AppImage with a SHA-256 checksum. Linux builds are unsigned.
-
-## GitHub Release
-
-The beta APK is debug-signed for direct testing/sideloading, not Google Play distribution. Debug signing is not a stable update key across fresh CI runners, so APKs may require uninstalling the prior test build before installing a new one. Pushing a `v*` tag starts an Android release build; the workflow can also be run manually with a release tag.
-
-
-Windows uses `windows-v*` tags and publishes separately.
+Native release workflows publish artifacts when invoked with their platform release tags. Do not publish a Vannot release until its branding, installer contents, checksum, and platform-specific launch flows have been verified. Stable Windows releases also require the signing secrets described in [Windows code signing](windows/CODE_SIGNING.md).

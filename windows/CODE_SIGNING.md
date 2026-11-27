@@ -1,6 +1,6 @@
 # Windows Code Signing
 
-Stable Windows releases require a trusted code-signing certificate. Without it, SmartScreen can label Moon Launcher as an unrecognized app. Stable releases sign and verify the 64-bit `x64` installer before publishing it. Beta releases intentionally skip signing so testers can download builds before the signing secrets are configured; Windows may still show an unrecognized-app warning for those beta files.
+Stable Windows releases require a trusted code-signing certificate. Without it, SmartScreen can label Vannot Launcher as an unrecognized app. Stable releases sign and verify the 64-bit `x64` installer before publishing it. Beta releases intentionally skip signing so testers can download builds before the signing secrets are configured; Windows may still show an unrecognized-app warning for those beta files.
 
 The certificate must be issued by a trusted certificate authority, include the Code Signing usage and private key, and be exported as a password-protected PFX. A self-signed certificate will not establish publisher trust for users.
 
@@ -12,7 +12,7 @@ Add these repository secrets under **Settings > Secrets and variables > Actions*
 On Windows PowerShell, encode the PFX locally with:
 
 ```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes('C:\path\MoonLauncher-CodeSigning.pfx')) | Set-Clipboard
+[Convert]::ToBase64String([IO.File]::ReadAllBytes('C:\path\VannotLauncher-CodeSigning.pfx')) | Set-Clipboard
 ```
 
 Paste the clipboard contents directly into the GitHub secret field. Do not commit the PFX or send the PFX, password, or Base64 value in chat. GitHub Actions signs the installer with SHA-256, timestamps it, verifies the signature, and only then uploads it. If signing or verification fails, no release is published.

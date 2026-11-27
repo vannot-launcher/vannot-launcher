@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { createRoot } from 'react-dom/client';
-import moonLogo from './assets/moon-logo.png';
 import DownloadPortal from './DownloadPortal.jsx';
-import { exportMoonDatabase, getMoonDatabase, importMoonDatabase, setMoonSetting, updateMoonDatabase } from './moonDatabase.js';
+import { exportVannotDatabase, getVannotDatabase, importVannotDatabase, setVannotSetting, updateVannotDatabase } from './vannotDatabase.js';
 import {
   ArrowDownToLine, ArrowLeft, ArrowUpRight, Blocks, Check, ChevronDown,
   CircleHelp, Compass, Cpu, Download, Gamepad2, HardDrive, Layers3, LoaderCircle,
@@ -13,6 +12,8 @@ import {
 } from 'lucide-react';
 import './styles.css';
 
+const vannotLogo = '/vannot-logo.svg';
+
 const pages = [
   { id: 'home', label: 'Beranda', icon: Gamepad2 },
   { id: 'mods', label: 'Jelajahi mod', icon: Compass },
@@ -20,7 +21,7 @@ const pages = [
   { id: 'utilities', label: 'Pusat fitur', icon: Zap },
 ];
 
-const moonFeatures = [
+const vannotFeatures = [
   'Peluncuran cepat', 'Ganti versi game', 'Kelola profil offline', 'Install mod kompatibel',
   'Modpack lokal', 'Resource pack', 'Shader', 'Data pack', 'World terenkripsi',
   'Mode offline', 'Cadangan database', 'Pulihkan database', 'Unduhan cerdas',
@@ -37,13 +38,13 @@ const contentTypes = [
   { id: 'datapack', label: 'Data pack' },
   { id: 'world', label: 'World' },
 ];
-const NoomAndroid = registerPlugin('NoomAndroid');
+const VannotAndroid = registerPlugin('VannotAndroid');
 const isNativePlatform = Capacitor.isNativePlatform();
 if (!isNativePlatform) document.documentElement.classList.add('download-portal');
 
 function App() {
   const [page, setPage] = useState('home');
-  const [initialDatabase] = useState(() => getMoonDatabase());
+  const [initialDatabase] = useState(() => getVannotDatabase());
   const [initialVersion] = useState(() => initialDatabase.minecraftVersion || '');
   const [version, setVersion] = useState(initialVersion || fallbackMinecraftVersions[0]);
   const [minecraftVersions, setMinecraftVersions] = useState(fallbackMinecraftVersions);
@@ -63,11 +64,11 @@ function App() {
   const [activeOfflineProfile, setActiveOfflineProfile] = useState(() => initialDatabase.activeOfflineProfile);
 
   useEffect(() => {
-    updateMoonDatabase((database) => ({ ...database, profiles: offlineProfiles }));
+    updateVannotDatabase((database) => ({ ...database, profiles: offlineProfiles }));
   }, [offlineProfiles]);
 
   useEffect(() => {
-    updateMoonDatabase((database) => ({ ...database, activeOfflineProfile }));
+    updateVannotDatabase((database) => ({ ...database, activeOfflineProfile }));
   }, [activeOfflineProfile]);
 
   useEffect(() => {
@@ -103,12 +104,12 @@ function App() {
 
   useEffect(() => {
     if (version) {
-      updateMoonDatabase((database) => ({ ...database, minecraftVersion: version }));
+      updateVannotDatabase((database) => ({ ...database, minecraftVersion: version }));
     }
   }, [version]);
 
   useEffect(() => {
-    NoomAndroid.getModsFolder().then((result) => setModsFolderConfigured(result.configured)).catch(() => {});
+    VannotAndroid.getModsFolder().then((result) => setModsFolderConfigured(result.configured)).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -118,7 +119,7 @@ function App() {
       setModsLoading(true);
       try {
         if (catalogSource === 'CurseForge') {
-          const apiKey = getMoonSetting('curseForgeApiKey', '');
+          const apiKey = getVannotSetting('curseForgeApiKey', '');
           if (!apiKey.trim()) throw new Error('Tambahkan CurseForge API key di Pengaturan untuk mengaktifkan katalog.');
           const params = new URLSearchParams({
             gameId: '432',
@@ -167,7 +168,7 @@ function App() {
   }, [page, query, loader, contentType, catalogSource]);
 
   function openGame() {
-    setStatus('Shell web lama tidak menjalankan Minecraft. Gunakan APK Moon Android standalone.');
+    setStatus('Versi web Vannot tidak menjalankan Minecraft. Runtime native Vannot belum tersedia.');
   }
 
   async function addMod(mod) {
@@ -175,7 +176,7 @@ function App() {
     try {
       let downloadUrl = '';
       if (mod.catalog_source === 'CurseForge') {
-        const apiKey = getMoonSetting('curseForgeApiKey', '');
+        const apiKey = getVannotSetting('curseForgeApiKey', '');
         const filesResponse = await fetch(`https://api.curseforge.com/v1/mods/${encodeURIComponent(mod.project_id)}/files?gameVersion=${encodeURIComponent(version)}`, {
           headers: { Accept: 'application/json', 'x-api-key': apiKey.trim() },
         });
@@ -186,7 +187,7 @@ function App() {
         if (!file) throw new Error(`Tidak ada berkas .jar CurseForge untuk Minecraft ${version}.`);
         downloadUrl = file.downloadUrl || `https://edge.forgecdn.net/files/${Math.floor(file.id / 1000)}/${file.id % 1000}/${encodeURIComponent(file.fileName)}`;
       }
-      const result = await NoomAndroid.installMod({ projectId: mod.project_id, version, loader, downloadUrl });
+      const result = await VannotAndroid.installMod({ projectId: mod.project_id, version, loader, downloadUrl });
       setStatus(result.message);
     } catch (error) {
       setStatus(error.message);
@@ -210,7 +211,7 @@ function App() {
       const file = compatibleVersion?.files?.find((item) => item.primary) || compatibleVersion?.files?.[0];
       if (!file?.url || !file.filename) throw new Error(`Tidak ada berkas ${contentTypes.find((item) => item.id === contentType)?.label.toLowerCase()} untuk Minecraft ${version}.`);
       setStatus(`Menyiapkan unduhan ${file.filename}...`);
-      const result = await NoomAndroid.saveDownload({ url: file.url, filename: file.filename });
+      const result = await VannotAndroid.saveDownload({ url: file.url, filename: file.filename });
       setStatus(result.message);
     } catch (error) {
       setStatus(error.message || 'Unduhan gagal.');
@@ -221,10 +222,10 @@ function App() {
 
   function connectAccount(type) {
     if (type === 'elyby') {
-      setStatus('Login Ely.by belum tersedia di Moon Launcher.');
+      setStatus('Login Ely.by belum tersedia di Vannot Launcher.');
       return;
     }
-    setStatus('Login Microsoft tersedia di APK Moon Android standalone.');
+    setStatus('Login Microsoft belum tersedia di versi web Vannot.');
   }
 
   function createOfflineProfile(username) {
@@ -245,7 +246,7 @@ function App() {
 
   async function chooseModsFolder() {
     try {
-      const result = await NoomAndroid.chooseModsFolder();
+      const result = await VannotAndroid.chooseModsFolder();
       setModsFolderConfigured(result.configured);
       setStatus('Folder dipilih untuk pemasangan mod. Pastikan ini folder mods game yang aktif.');
     } catch (error) {
@@ -256,9 +257,9 @@ function App() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <button className="brand" onClick={() => setPage('home')} aria-label="Moon Launcher beranda">
-          <img className="brand-mark" src={moonLogo} alt="" />
-          <span className="brand-name">moon<span>.</span></span>
+        <button className="brand" onClick={() => setPage('home')} aria-label="Vannot Launcher beranda">
+          <img className="brand-mark" src={vannotLogo} alt="" />
+          <span className="brand-name">vannot<span>.</span></span>
         </button>
         <div className="side-caption">MAIN MENU</div>
         <nav className="nav-list" aria-label="Menu utama">
@@ -279,19 +280,19 @@ function App() {
           <button className="nav-item settings-link" onClick={() => setPage('settings')}>
             <Settings2 size={18} strokeWidth={1.8} /><span>Pengaturan</span>
           </button>
-          <div className="sidebar-version">MOON LAUNCHER <span>v2.1.3</span></div>
+          <div className="sidebar-version">VANNOT LAUNCHER <span>PREVIEW</span></div>
         </div>
       </aside>
 
       <main className="main-panel">
         <header className="topbar">
-          <div className="breadcrumb"><span>MOON</span><span className="crumb-slash">/</span><strong>{page === 'home' ? 'BERANDA' : page === 'mods' ? 'JELAJAHI MOD' : page === 'settings' ? 'PENGATURAN' : page === 'utilities' ? 'PUSAT FITUR' : 'INSTALASI'}</strong></div>
+          <div className="breadcrumb"><span>VANNOT</span><span className="crumb-slash">/</span><strong>{page === 'home' ? 'BERANDA' : page === 'mods' ? 'JELAJAHI MOD' : page === 'settings' ? 'PENGATURAN' : page === 'utilities' ? 'PUSAT FITUR' : 'INSTALASI'}</strong></div>
           <div className="top-actions">
             <button className="icon-button help-button" title="Bantuan"><CircleHelp size={17} /></button>
             <span className="top-divider" />
             <button className="profile-button" onClick={() => { setStatus(''); setModal(true); }}>
               <span className="avatar"><UserRound size={15} /></span>
-              <span className="profile-copy"><strong>{offlineProfiles.find((profile) => profile.id === activeOfflineProfile)?.name || 'Belum ada akun'}</strong><small>{activeOfflineProfile ? 'PROFIL OFFLINE MOON' : 'PILIH PROFIL'}</small></span>
+              <span className="profile-copy"><strong>{offlineProfiles.find((profile) => profile.id === activeOfflineProfile)?.name || 'Belum ada akun'}</strong><small>{activeOfflineProfile ? 'PROFIL OFFLINE VANNOT' : 'PILIH PROFIL'}</small></span>
               <ChevronDown size={15} />
             </button>
           </div>
@@ -316,7 +317,7 @@ function HomePage({ version, setVersion, versions, versionsLoading, onPlay, busy
       <section className="hero">
         <div className="hero-image" />
         <div className="hero-content">
-          <div className="eyebrow"><span className="live-dot" /> MINECRAFT JAVA <span className="eyebrow-sep">/</span> MOON STANDALONE</div>
+          <div className="eyebrow"><span className="live-dot" /> MINECRAFT JAVA <span className="eyebrow-sep">/</span> VANNOT PREVIEW</div>
           <h1>Dunia baru<br /><em>menunggumu.</em></h1>
           <p>Tempat semua petualangan Minecraft-mu dimulai.</p>
           <div className="hero-controls">
@@ -333,10 +334,10 @@ function HomePage({ version, setVersion, versions, versionsLoading, onPlay, busy
               <ChevronDown size={14} />
             </label>
           </div>
-          <div className="hero-footnote">RUNTIME, AKUN, DAN KONTROL DI MOON</div>
+          <div className="hero-footnote">ANTARMUKA PREVIEW · RUNTIME GAME BELUM TERSEDIA</div>
         </div>
         <div className="hero-index">01 <span>/</span> 03</div>
-        <span className="hero-coordinate">MOON WORLD · JAVA</span>
+        <span className="hero-coordinate">VANNOT WORLD · JAVA</span>
       </section>
 
       <div className="home-lower">
@@ -350,9 +351,9 @@ function HomePage({ version, setVersion, versions, versionsLoading, onPlay, busy
         </section>
         <section className="status-block">
           <div className="section-kicker">STATUS PELUNCUR</div>
-          <div className="status-title"><span className="status-check"><Check size={15} /></span><strong>{busy ? 'Menyiapkan game' : 'Launcher Moon siap'}</strong></div>
+          <div className="status-title"><span className="status-check"><Check size={15} /></span><strong>{busy ? 'Menyiapkan game' : 'Preview Vannot siap'}</strong></div>
           <div className="status-divider" />
-          <div className="status-detail"><span>AKUN & GAME</span><strong>Moon standalone</strong></div>
+          <div className="status-detail"><span>RUNTIME GAME</span><strong>Belum tersedia</strong></div>
           <div className="status-detail"><span>TARGET MOD</span><strong>{version} <span className="version-type">FABRIC</span></strong></div>
           {status && <div className="inline-status">{status}</div>}
         </section>
@@ -388,7 +389,7 @@ function ModsPage({ query, setQuery, loader, version, setVersion, versions, vers
         ))}
         {!loading && mods.length === 0 && <div className="empty-results"><Sparkles size={21} /><strong>Belum ada hasil</strong><span>Coba kata pencarian yang berbeda.</span></div>}
       </div>
-      <div className="catalog-footer"><ShieldCheck size={15} /><span>{contentType === 'mod' ? `Mod ${loader} dipasang ke folder mods; loader tersebut harus sudah dipasang di Pojav.` : contentType === 'modpack' ? `Modpack ${loader} diunduh sebagai .mrpack dan perlu diimpor ke launcher.` : `${selectedType?.label} diunduh ke lokasi yang kamu pilih.`} Katalog: {catalogSource}.</span><a href={catalogSource === 'CurseForge' ? 'https://www.curseforge.com/minecraft' : 'https://modrinth.com'} target="_blank" rel="noreferrer">{catalogSource} <ArrowUpRight size={12} /></a></div>
+      <div className="catalog-footer"><ShieldCheck size={15} /><span>{contentType === 'mod' ? `Mod ${loader} dipasang ke folder mods; loader tersebut harus sudah dipasang di runtime game.` : contentType === 'modpack' ? `Modpack ${loader} diunduh sebagai .mrpack dan perlu diimpor ke launcher.` : `${selectedType?.label} diunduh ke lokasi yang kamu pilih.`} Katalog: {catalogSource}.</span><a href={catalogSource === 'CurseForge' ? 'https://www.curseforge.com/minecraft' : 'https://modrinth.com'} target="_blank" rel="noreferrer">{catalogSource} <ArrowUpRight size={12} /></a></div>
     </div>
   );
 }
@@ -396,10 +397,10 @@ function ModsPage({ query, setQuery, loader, version, setVersion, versions, vers
 function InstancesPage({ onOpenGame }) {
   return (
     <div className="page simple-page">
-      <div className="page-title-row"><div><div className="section-kicker">MINECRAFT JAVA · MOON</div><h1>Instalasi</h1><p>Versi game dan profil dikelola oleh launcher Moon.</p></div><button className="outline-action" onClick={onOpenGame}><ArrowUpRight size={16} /> Main Minecraft</button></div>
-      <div className="instance-row"><div className="instance-cover"><Gamepad2 size={25} /></div><div className="instance-main"><strong>Moon Launcher</strong><span>Minecraft Java Edition · Runtime game berada di aplikasi ini</span></div><span className="installed-label"><span className="live-dot" /> ANDROID</span></div>
+      <div className="page-title-row"><div><div className="section-kicker">MINECRAFT JAVA · VANNOT</div><h1>Instalasi</h1><p>Runtime native Vannot belum tersedia pada preview web ini.</p></div><button className="outline-action" onClick={onOpenGame}><ArrowUpRight size={16} /> Main Minecraft</button></div>
+      <div className="instance-row"><div className="instance-cover"><Gamepad2 size={25} /></div><div className="instance-main"><strong>Vannot Launcher</strong><span>Minecraft Java Edition · Runtime belum tersedia di preview ini</span></div><span className="installed-label"><span className="live-dot" /> PREVIEW</span></div>
       <div className="section-line" />
-      <div className="setup-note"><Blocks size={19} /><div><strong>Mod melalui katalog Moon</strong><span>Gunakan profil game yang sama saat memasang mod.</span></div><button className="text-link" onClick={onOpenGame}>MAIN GAME <ArrowUpRight size={15} /></button></div>
+      <div className="setup-note"><Blocks size={19} /><div><strong>Mod melalui katalog</strong><span>Pasang mod saat runtime game Vannot tersedia.</span></div><button className="text-link" onClick={onOpenGame}>STATUS RUNTIME <ArrowUpRight size={15} /></button></div>
     </div>
   );
 }
@@ -413,11 +414,11 @@ function UtilitiesPage({ setPage, onOpenGame }) {
         localStorage.removeItem(key);
       }
     });
-    setMessage('Perbaikan selesai. Profil, versi terpasang, mod, dan database Moon tidak dihapus.');
+    setMessage('Perbaikan selesai. Data launcher yang tersimpan tidak dihapus.');
   }
 
   function rollbackLauncher() {
-    const database = getMoonDatabase();
+    const database = getVannotDatabase();
     const rollback = [...(database.updateHistory || [])].reverse().find((entry) => entry.version && entry.version !== '2.1.3');
     setMessage(rollback ? `Versi simpanan tersedia: ${rollback.version}. Tidak ada pengunduhan ulang launcher.` : 'Rollback aman siap digunakan; profile dan versi tersimpan tetap dipertahankan.');
   }
@@ -425,8 +426,8 @@ function UtilitiesPage({ setPage, onOpenGame }) {
   return (
     <div className="page simple-page utilities-page">
       <div className="page-title-row">
-        <div><div className="section-kicker">MOON 2.1.3 · OPERASI</div><h1>Pusat fitur</h1><p>17 alat normal untuk profil, game, konten, dan pemeliharaan launcher.</p></div>
-        <span className="stable-badge">VERSI STABIL 2.1.3</span>
+        <div><div className="section-kicker">VANNOT · OPERASI</div><h1>Pusat fitur</h1><p>Alat preview untuk profil, konten, dan pemeliharaan antarmuka.</p></div>
+        <span className="stable-badge">PREVIEW</span>
       </div>
       <div className="quick-actions">
         <button onClick={onOpenGame}><Gamepad2 size={18} /><span>Mulai game</span></button>
@@ -436,7 +437,7 @@ function UtilitiesPage({ setPage, onOpenGame }) {
         <button onClick={repairLauncher}><Wrench size={18} /><span>Perbaiki launcher</span></button>
       </div>
       <div className="feature-grid">
-        {moonFeatures.map((feature, index) => (
+        {vannotFeatures.map((feature, index) => (
           <article className="feature-card" key={feature}>
             <span>{String(index + 1).padStart(2, '0')}</span>
             {index === 12 ? <PackageCheck size={19} /> : index === 13 ? <Wrench size={19} /> : index === 15 ? <RotateCcw size={19} /> : <Check size={19} />}
@@ -447,7 +448,7 @@ function UtilitiesPage({ setPage, onOpenGame }) {
       <div className="utility-maintenance">
         <button className="outline-action" onClick={repairLauncher}><Wrench size={15} /> Bersihkan cache</button>
         <button className="outline-action" onClick={rollbackLauncher}><RotateCcw size={15} /> Riwayat & rollback</button>
-        <span><ShieldCheck size={15} /> Update tidak menghapus data Moon atau mengunduh ulang launcher.</span>
+        <span><ShieldCheck size={15} /> Pengaturan dan profil tersimpan lokal di perangkat.</span>
       </div>
       {message && <div className="catalog-status" role="status">{message}</div>}
     </div>
@@ -455,34 +456,34 @@ function UtilitiesPage({ setPage, onOpenGame }) {
 }
 
 function SettingsPage({ onChooseModsFolder, modsFolderConfigured, onOpenGame }) {
-  const [settings, setSettings] = useState(() => getMoonDatabase().settings);
+  const [settings, setSettings] = useState(() => getVannotDatabase().settings);
   const [settingMessage, setSettingMessage] = useState('');
 
   function changeSetting(key, value) {
-    setMoonSetting(key, value);
+    setVannotSetting(key, value);
     setSettings((current) => ({ ...current, [key]: value }));
   }
 
   function exportSettings() {
-    const blob = new Blob([exportMoonDatabase()], { type: 'application/json' });
+    const blob = new Blob([exportVannotDatabase()], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'moon-launcher-settings.json';
+    link.download = 'vannot-launcher-settings.json';
     link.click();
     URL.revokeObjectURL(url);
-    setSettingMessage('Database Moon berhasil diekspor.');
+    setSettingMessage('Database Vannot berhasil diekspor.');
   }
 
   async function importSettings(event) {
     const file = event.target.files?.[0];
     if (!file) return;
     try {
-      importMoonDatabase(await file.text());
-      setSettings(getMoonDatabase().settings);
+      importVannotDatabase(await file.text());
+      setSettings(getVannotDatabase().settings);
       setSettingMessage('Pengaturan berhasil diimpor. Muat ulang launcher untuk menerapkan semua data.');
     } catch (error) {
-      setSettingMessage(error instanceof Error ? error.message : 'File database Moon tidak valid.');
+      setSettingMessage(error instanceof Error ? error.message : 'File database Vannot tidak valid.');
     } finally {
       event.target.value = '';
     }
@@ -490,15 +491,15 @@ function SettingsPage({ onChooseModsFolder, modsFolderConfigured, onOpenGame }) 
 
   return (
     <div className="page simple-page">
-      <div className="page-title-row"><div><div className="section-kicker">MOON ANDROID LAUNCHER</div><h1>Pengaturan</h1><p>Atur direktori konten, privasi, jaringan, dan tampilan Moon.</p></div></div>
-      <section className="settings-section"><div className="settings-heading"><h2>Folder mod</h2><span>01</span></div><div className="setting-row"><div><strong>{modsFolderConfigured ? 'Folder mods dipilih' : 'Pilih folder mods game'}</strong><span>Pilih folder `mods` yang digunakan profil game Moon.</span></div><button className="outline-action" onClick={onChooseModsFolder}><HardDrive size={15} /> {modsFolderConfigured ? 'Ganti folder' : 'Pilih folder'}</button></div></section>
+      <div className="page-title-row"><div><div className="section-kicker">VANNOT LAUNCHER</div><h1>Pengaturan</h1><p>Atur direktori konten, privasi, jaringan, dan tampilan.</p></div></div>
+      <section className="settings-section"><div className="settings-heading"><h2>Folder mod</h2><span>01</span></div><div className="setting-row"><div><strong>{modsFolderConfigured ? 'Folder mods dipilih' : 'Pilih folder mods game'}</strong><span>Pilih folder `mods` yang digunakan runtime game.</span></div><button className="outline-action" onClick={onChooseModsFolder}><HardDrive size={15} /> {modsFolderConfigured ? 'Ganti folder' : 'Pilih folder'}</button></div></section>
       <section className="settings-section"><div className="settings-heading"><h2>Tampilan dan suara</h2><span>02</span></div><div className="setting-row"><div><strong>Animasi antarmuka</strong><span>Animasi tombol, loading, dan transisi halaman.</span></div><input className="toggle" type="checkbox" checked={settings.animations !== false} onChange={(event) => changeSetting('animations', event.target.checked)} aria-label="Aktifkan animasi antarmuka" /></div><div className="setting-row"><div><strong>Suara klik</strong><span>Efek audio singkat untuk tindakan antarmuka.</span></div><input className="toggle" type="checkbox" checked={settings.clickSounds === true} onChange={(event) => changeSetting('clickSounds', event.target.checked)} aria-label="Aktifkan suara klik" /></div></section>
       <section className="settings-section"><div className="settings-heading"><h2>Jaringan dan privasi</h2><span>03</span></div><div className="setting-row"><div><strong>Mode hemat bandwidth</strong><span>Batasi unduhan paralel dan refresh katalog.</span></div><input className="toggle" type="checkbox" checked={settings.lowBandwidth === true} onChange={(event) => changeSetting('lowBandwidth', event.target.checked)} aria-label="Aktifkan mode hemat bandwidth" /></div><div className="setting-row"><div><strong>Kirim laporan crash</strong><span>Hanya dengan persetujuan; data sensitif harus dihapus sebelum dikirim.</span></div><input className="toggle" type="checkbox" checked={settings.crashReports === true} onChange={(event) => changeSetting('crashReports', event.target.checked)} aria-label="Izinkan laporan crash" /></div></section>
-      <section className="settings-section"><div className="settings-heading"><h2>Data Moon</h2><span>04</span></div><div className="setting-row"><div><strong>Cadangkan atau pulihkan pengaturan</strong><span>Ekspor semua metadata database ke file JSON lokal.</span></div><div className="settings-actions"><button className="outline-action" onClick={exportSettings}><ArrowDownToLine size={15} /> Ekspor</button><label className="outline-action"><ArrowUpRight size={15} /> Impor<input className="visually-hidden" type="file" accept="application/json,.json" onChange={importSettings} /></label></div></div></section>
+      <section className="settings-section"><div className="settings-heading"><h2>Data Vannot</h2><span>04</span></div><div className="setting-row"><div><strong>Cadangkan atau pulihkan pengaturan</strong><span>Ekspor semua metadata database ke file JSON lokal.</span></div><div className="settings-actions"><button className="outline-action" onClick={exportSettings}><ArrowDownToLine size={15} /> Ekspor</button><label className="outline-action"><ArrowUpRight size={15} /> Impor<input className="visually-hidden" type="file" accept="application/json,.json" onChange={importSettings} /></label></div></div></section>
       <section className="settings-section"><div className="settings-heading"><h2>Katalog mod</h2><span>05</span></div><div className="setting-row"><div><strong>CurseForge API key</strong><span>Gunakan API resmi CurseForge agar pencarian dan unduhan aman. Kunci disimpan hanya di perangkat.</span></div><input className="catalog-key-input" type="password" value={settings.curseForgeApiKey || ''} onChange={(event) => changeSetting('curseForgeApiKey', event.target.value)} aria-label="CurseForge API key" placeholder="Masukkan API key" /></div></section>
-      <section className="settings-section"><div className="settings-heading"><h2>Akun dan game</h2><span>05</span></div><div className="setting-row"><div><strong>Dikelola di Moon</strong><span>Shell web lama tidak meminta atau meneruskan password akun.</span></div><button className="outline-action" onClick={onOpenGame}><ArrowUpRight size={15} /> Status launcher</button></div></section>
+      <section className="settings-section"><div className="settings-heading"><h2>Akun dan game</h2><span>05</span></div><div className="setting-row"><div><strong>Dikelola di Vannot</strong><span>Shell web tidak meminta atau meneruskan password akun.</span></div><button className="outline-action" onClick={onOpenGame}><ArrowUpRight size={15} /> Status runtime</button></div></section>
       {settingMessage && <div className="catalog-status" role="status">{settingMessage}</div>}
-      <div className="settings-foot"><ShieldCheck size={15} /> Runtime game dan kontrol tersedia di APK Android standalone.</div>
+      <div className="settings-foot"><ShieldCheck size={15} /> Runtime game native belum tersedia di preview web ini.</div>
     </div>
   );
 }
@@ -517,7 +518,7 @@ function AccountModal({ onClose, onConnect, onCreateOffline, profiles, activePro
           <button className={tab === 'elyby' ? 'selected' : ''} onClick={() => setTab('elyby')}>Ely.by</button>
         </div>
         {tab === 'offline' && <div className="account-form">
-          <p>Buat profil offline langsung di Moon. Nama disimpan hanya di perangkat ini; profil offline tidak memberi akses ke server yang mewajibkan akun premium.</p>
+          <p>Buat profil offline langsung di Vannot. Nama disimpan hanya di perangkat ini; profil offline tidak memberi akses ke server yang mewajibkan akun premium.</p>
           <form onSubmit={(event) => { event.preventDefault(); onCreateOffline(username); }}>
             <label htmlFor="offline-username">NAMA PROFIL</label>
             <input id="offline-username" value={username} onChange={(event) => setUsername(event.target.value)} placeholder="Contoh: PemainBaru" maxLength={16} autoComplete="off" />
@@ -525,12 +526,12 @@ function AccountModal({ onClose, onConnect, onCreateOffline, profiles, activePro
           </form>
           {profiles.length > 0 && <div className="offline-profile-list"><span className="section-kicker">PROFIL TERSIMPAN</span>{profiles.map((profile) => <button key={profile.id} className={`offline-profile ${profile.id === activeProfile ? 'selected' : ''}`} onClick={() => onSelectProfile(profile.id)}><UserRound size={15} /><span>{profile.name}</span>{profile.id === activeProfile && <Check size={15} />}</button>)}</div>}
           <div className="account-assurance"><ShieldCheck size={17} /> Profil offline tersimpan di aplikasi</div>
-          <p className="account-note">Versi web shell beta belum menjalankan game sendiri. Untuk membuka Minecraft, gunakan APK Moon Android standalone.</p>
+          <p className="account-note">Versi web preview belum menjalankan game sendiri. Runtime native Vannot belum tersedia.</p>
         </div>}
-        {tab === 'microsoft' && <div className="account-form"><p>Login Microsoft belum dapat dilakukan langsung di Moon web shell. Autentikasi yang aman perlu alur OAuth resmi dan pemeriksaan kepemilikan Minecraft Java Edition.</p><div className="account-assurance"><ShieldCheck size={17} /> Akun harus memiliki Minecraft Java Edition</div><button className="modal-submit" onClick={() => onConnect('microsoft')}>LANJUTKAN DI LAUNCHER ANDROID <ArrowUpRight size={16} /></button></div>}
-        {tab === 'elyby' && <div className="account-form"><p>Login Ely.by belum didukung di Moon Launcher. Jangan masukkan kata sandi akun Ely.by di sini.</p><div className="account-assurance warning"><ShieldCheck size={17} /> Login Ely.by belum tersedia</div><button className="modal-submit" onClick={() => onConnect('elyby')}>INFO LOGIN ELY.BY <ShieldCheck size={16} /></button></div>}
+        {tab === 'microsoft' && <div className="account-form"><p>Login Microsoft belum tersedia di Vannot web preview. Autentikasi native perlu alur OAuth resmi dan pemeriksaan kepemilikan Minecraft Java Edition.</p><div className="account-assurance"><ShieldCheck size={17} /> Akun harus memiliki Minecraft Java Edition</div><button className="modal-submit" onClick={() => onConnect('microsoft')}>INFO LOGIN MICROSOFT <ArrowUpRight size={16} /></button></div>}
+        {tab === 'elyby' && <div className="account-form"><p>Login Ely.by belum didukung di Vannot Launcher. Jangan masukkan kata sandi akun Ely.by di sini.</p><div className="account-assurance warning"><ShieldCheck size={17} /> Login Ely.by belum tersedia</div><button className="modal-submit" onClick={() => onConnect('elyby')}>INFO LOGIN ELY.BY <ShieldCheck size={16} /></button></div>}
         {status && <div className="modal-status">{status}</div>}
-        <div className="modal-foot">Akun online tidak pernah disimpan oleh Moon web shell.</div>
+        <div className="modal-foot">Akun online tidak pernah dikirim dari Vannot web preview.</div>
       </section>
     </div>
   );

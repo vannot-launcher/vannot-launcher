@@ -1,4 +1,4 @@
-package id.noom.launcher;
+package id.vannot.launcher;
 
 import com.getcapacitor.BridgeActivity;
 import android.os.Bundle;
@@ -6,7 +6,7 @@ import android.os.Bundle;
 public class MainActivity extends BridgeActivity {
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
-		registerPlugin(NoomPlugin.class);
+		registerPlugin(VannotPlugin.class);
 		super.onCreate(savedInstanceState);
 	}
 }

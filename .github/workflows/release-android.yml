@@ -1,4 +1,4 @@
-name: Android Standalone Launcher Release
+name: Vannot Android Launcher Release
 
 on:
   workflow_dispatch:
@@ -11,8 +11,6 @@ on:
   push:
     tags:
       - 'v*'
-  schedule:
-    - cron: '0 0 1 12 *'
 
 permissions:
   contents: write
@@ -21,7 +19,7 @@ jobs:
   release:
     runs-on: ubuntu-22.04
     steps:
-      - name: Check out Moon Launcher
+      - name: Check out Vannot Launcher
         uses: actions/checkout@v4
 
       - name: Set up Node.js
@@ -77,9 +75,9 @@ jobs:
           rm -f "$response_file"
           echo "CurseForge API connection verified successfully."
 
-      - name: Rebrand Zalith runtime as Moon Launcher
+      - name: Rebrand Zalith runtime as Vannot Launcher
         env:
-          RELEASE_TAG: ${{ github.event_name == 'schedule' && 'v3.2.0' || inputs.release_tag || github.ref_name }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
           CURSEFORGE_API_KEY: ${{ secrets.api_key_curseforge || secrets.API_KEY_CURSEFORGE || secrets.CURSEFORGE_API_KEY || secrets.CURSEFORGE_API_TOKEN }}
         run: node android/rebrand-zalith.mjs runtime "$RELEASE_TAG"
 
@@ -95,32 +93,32 @@ jobs:
           gradle-version: '8.13'
           validate-wrappers: false
 
-      - name: Build Moon Android launcher
+      - name: Build Vannot Android launcher
         env:
           CURSEFORGE_API_KEY: ${{ secrets.api_key_curseforge || secrets.API_KEY_CURSEFORGE || secrets.CURSEFORGE_API_KEY || secrets.CURSEFORGE_API_TOKEN }}
         run: |
           cd runtime
           chmod +x gradlew
           gradle :ZalithLauncher:assembleDebug -Darch=arm64
-          find ZalithLauncher/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -exec cp {} /tmp/moon-arm64.apk \;
+          find ZalithLauncher/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' -exec cp {} /tmp/vannot-arm64.apk \;
           gradle :ZalithLauncher:assembleDebug -Darch=arm32
           cd ..
           mkdir -p release-artifacts
-          cp /tmp/moon-arm64.apk "release-artifacts/Moon-Launcher-${{ github.event_name == 'schedule' && 'v3.2.0' || inputs.release_tag || github.ref_name }}-Android-arm64.apk"
-          armv7_apk="$(find runtime/ZalithLauncher/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' ! -samefile /tmp/moon-arm64.apk | head -n 1)"
+          cp /tmp/vannot-arm64.apk "release-artifacts/Vannot-Launcher-${{ inputs.release_tag || github.ref_name }}-Android-arm64.apk"
+          armv7_apk="$(find runtime/ZalithLauncher/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' ! -samefile /tmp/vannot-arm64.apk | head -n 1)"
           if [[ -z "$armv7_apk" ]]; then
             armv7_apk="$(find runtime/ZalithLauncher/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n 1)"
           fi
-          cp "$armv7_apk" "release-artifacts/Moon-Launcher-${{ github.event_name == 'schedule' && 'v3.2.0' || inputs.release_tag || github.ref_name }}-Android-armv7.apk"
+          cp "$armv7_apk" "release-artifacts/Vannot-Launcher-${{ inputs.release_tag || github.ref_name }}-Android-armv7.apk"
 
       - name: Validate and checksum Android artifact
         run: |
-          node scripts/validate-release.mjs android '${{ github.event_name == 'schedule' && 'v3.2.0' || inputs.release_tag || github.ref_name }}' release-artifacts > release-artifacts/SHA256SUMS.txt
+          node scripts/validate-release.mjs android '${{ inputs.release_tag || github.ref_name }}' release-artifacts > release-artifacts/SHA256SUMS.txt
           cat release-artifacts/SHA256SUMS.txt
 
       - name: Resolve Android release channel
         env:
-          RELEASE_TAG: ${{ github.event_name == 'schedule' && 'v3.2.0' || inputs.release_tag || github.ref_name }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
           if [[ "$RELEASE_TAG" == *"-beta."* || "$RELEASE_TAG" == *"-alpha."* || "$RELEASE_TAG" == *"-rc."* ]]; then
             echo "IS_PRERELEASE=true" >> "$GITHUB_ENV"
@@ -131,11 +129,11 @@ jobs:
       - name: Publish standalone Android release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event_name == 'schedule' && 'v3.2.0' || inputs.release_tag || github.ref_name }}
-          name: Moon Launcher Android ${{ github.event_name == 'schedule' && 'v3.2.0' || inputs.release_tag || github.ref_name }}
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
+          name: Vannot Launcher Android ${{ inputs.release_tag || github.ref_name }}
           prerelease: ${{ env.IS_PRERELEASE == 'true' }}
           generate_release_notes: true
           files: |
-            release-artifacts/Moon-Launcher-${{ github.event_name == 'schedule' && 'v3.2.0' || inputs.release_tag || github.ref_name }}-Android-*.apk
+            release-artifacts/Vannot-Launcher-${{ inputs.release_tag || github.ref_name }}-Android-*.apk
             release-artifacts/SHA256SUMS.txt
             android/THIRD_PARTY_NOTICES.md

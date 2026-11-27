@@ -1,7 +1,7 @@
 import { copyFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { generateMoonAssets } from '../scripts/generate-moon-assets.mjs';
+import { generateVannotAssets } from '../scripts/generate-vannot-assets.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const xmclRoot = path.resolve(process.argv[2] || '');
@@ -26,11 +26,11 @@ async function rebrandTextFiles(directory) {
     } else if (/\.(html|json|ts|vue)$/.test(entry.name)) {
       const source = await readFile(file, 'utf8');
       const branded = source
-        .replaceAll('X Minecraft Launcher', 'Moon Launcher')
-        .replaceAll('>XMCL<', '>Moon<')
-        .replaceAll('"XMCL"', '"Moon"')
-        .replaceAll("'XMCL'", "'Moon'")
-        .replaceAll('logo.webp', 'moon-logo.png');
+        .replaceAll('X Minecraft Launcher', 'Vannot Launcher')
+        .replaceAll('>XMCL<', '>Vannot<')
+        .replaceAll('"XMCL"', '"Vannot"')
+        .replaceAll("'XMCL'", "'Vannot'")
+        .replaceAll('logo.webp', 'vannot-logo.png');
       if (branded !== source) await writeFile(file, branded);
     }
   }
@@ -58,21 +58,21 @@ async function removeClientTitles(directory) {
 const electronApp = path.join(xmclRoot, 'xmcl-electron-app');
 const renderer = path.join(xmclRoot, 'xmcl-keystone-ui');
 const builderConfig = path.join(electronApp, 'build/electron-builder.config.ts');
-await replaceOnce(builderConfig, "productName: 'XMCL',", "productName: 'Moon Launcher',");
-await replaceOnce(builderConfig, "appId: 'xmcl',", "appId: 'id.noom.launcher.windows',");
-await replaceOnce(builderConfig, "name: 'XMCL',", "name: 'Moon Launcher',");
-await replaceOnce(builderConfig, "schemes: ['xmcl'],", "schemes: ['noom'],");
+await replaceOnce(builderConfig, "productName: 'XMCL',", "productName: 'Vannot Launcher',");
+await replaceOnce(builderConfig, "appId: 'xmcl',", "appId: 'id.vannot.launcher.windows',");
+await replaceOnce(builderConfig, "name: 'XMCL',", "name: 'Vannot Launcher',");
+await replaceOnce(builderConfig, "schemes: ['xmcl'],", "schemes: ['vannot'],");
 await replaceOnce(builderConfig, `publish: [{
     provider: 'github',
     owner: 'voxelum',
     repo: 'x-minecraft-launcher',
   }],`, `publish: [{
     provider: 'github',
-    owner: 'moonlaunchermc',
-    repo: 'moonlauncher',
+    owner: 'vannot-launcher',
+    repo: 'vannot-launcher',
   }],`);
-await replaceOnce(builderConfig, "artifactName: 'xmcl-${version}-${platform}-${arch}.${ext}',", "artifactName: 'MoonLauncher-v${version}-${arch}.${ext}',");
-await replaceOnce(builderConfig, "icon: 'icons/dark.ico',", "icon: 'icons/moon.ico',");
+await replaceOnce(builderConfig, "artifactName: 'xmcl-${version}-${platform}-${arch}.${ext}',", "artifactName: 'VannotLauncher-v${version}-${arch}.${ext}',");
+await replaceOnce(builderConfig, "icon: 'icons/dark.ico',", "icon: 'icons/vannot.ico',");
 await replaceOnce(builderConfig, `  extraResources: [{
     from: 'main/agent-documents',
     to: 'agent-documents',
@@ -82,8 +82,8 @@ await replaceOnce(builderConfig, `  extraResources: [{
     to: 'agent-documents',
     filter: ['**/*.md'],
   }, {
-    from: 'build/Moon-Third-Party-Notices.txt',
-    to: 'Moon-Third-Party-Notices.txt',
+    from: 'build/Vannot-Third-Party-Notices.txt',
+    to: 'Vannot-Third-Party-Notices.txt',
   }],`);
 await replaceOnce(builderConfig, `target: [
       {
@@ -118,17 +118,17 @@ await replaceOnce(builderConfig, `  linux: {
       { target: 'pacman', arch: ['x64', 'arm64'] },
     ],
   },`, `  linux: {
-    executableName: 'moon-launcher',
+    executableName: 'vannot-launcher',
     electronLanguages: ['en-US'],
     desktop: {
       entry: {
-        MimeType: 'x-scheme-handler/noom',
-        StartupWMClass: 'moon-launcher',
+        MimeType: 'x-scheme-handler/vannot',
+        StartupWMClass: 'vannot-launcher',
       },
     },
     category: 'Game',
-    icon: 'icons/moon-256.png',
-    artifactName: 'MoonLauncher-v\${version}-\${arch}.\${ext}',
+    icon: 'icons/vannot-256.png',
+    artifactName: 'VannotLauncher-v\${version}-\${arch}.\${ext}',
     target: [{ target: 'AppImage', arch: ['x64', 'ia32'] }],
   },`);
 
@@ -144,12 +144,12 @@ await writeFile(appPackagePath, `${JSON.stringify(appPackage, null, 4)}\n`);
 await replaceOnce(
   path.join(renderer, 'src/index.html'),
   '<title>X Minecraft Launcher</title>',
-  '<title>Moon Launcher</title>',
+  '<title>Vannot Launcher</title>',
 );
 await replaceOnce(
   path.join(renderer, 'src/index.html'),
-  '<title>Moon Launcher</title>',
-  '<title>Moon Launcher</title>\n    <link rel="icon" type="image/png" href="./assets/moon-logo.png">',
+  '<title>Vannot Launcher</title>',
+  '<title>Vannot Launcher</title>\n    <link rel="icon" type="image/png" href="./assets/vannot-logo.png">',
 );
 const loginForm = path.join(renderer, 'src/components/UserLoginForm.vue');
 const homeView = path.join(renderer, 'src/views/Home.vue');
@@ -159,12 +159,12 @@ const searchModel = path.join(renderer, 'src/composables/search.ts');
 await replaceOnce(
   vuetifyConfig,
   "primary: '#4caf50',\n          accent: '#00e676',",
-  "primary: '#79cba4',\n          accent: '#f2b56b',",
+  "primary: '#B9F27A',\n          accent: '#E4B85D',",
 );
 await replaceOnce(
   homeView,
   "import HomeCriticalError from './HomeCriticalError.vue'",
-  "import moonLogo from '@/assets/moon-logo.png'\nimport moonHero from '@/assets/moon-hero.webp'\nimport HomeCriticalError from './HomeCriticalError.vue'"
+  "import vannotLogo from '@/assets/vannot-logo.png'\nimport vannotHero from '@/assets/vannot-hero.webp'\nimport HomeCriticalError from './HomeCriticalError.vue'"
 );
 await replaceOnce(
   loginForm,
@@ -224,81 +224,81 @@ await replaceOnce(
 await replaceOnce(
   homeView,
   '          <HomeGrid />',
-  `          <section class="moon-hero mx-3 mb-6" data-testid="moon-hero">
-            <img class="moon-hero__art" :src="moonHero" alt="" />
-            <div class="moon-hero__content">
-              <div class="moon-hero__brandline">
-                <img class="moon-hero__logo" :src="moonLogo" alt="" />
+  `          <section class="vannot-hero mx-3 mb-6" data-testid="vannot-hero">
+            <img class="vannot-hero__art" :src="vannotHero" alt="" />
+            <div class="vannot-hero__content">
+              <div class="vannot-hero__brandline">
+                <img class="vannot-hero__logo" :src="vannotLogo" alt="" />
                 <div>
-                  <div class="moon-hero__wordmark">MOON LAUNCHER</div>
-                  <div class="moon-hero__caption">MINECRAFT JAVA EDITION</div>
+                  <div class="vannot-hero__wordmark">VANNOT LAUNCHER</div>
+                  <div class="vannot-hero__caption">MINECRAFT JAVA EDITION</div>
                 </div>
               </div>
-              <div class="moon-hero__eyebrow"><v-icon size="15">nightlight</v-icon> YOUR WORLD, READY TO PLAY</div>
+              <div class="vannot-hero__eyebrow"><v-icon size="15">nightlight</v-icon> YOUR WORLD, READY TO PLAY</div>
               <h1>{{ instance.name || ('Minecraft ' + instance.runtime.minecraft) }}</h1>
-              <div class="moon-hero__status">
-                <span class="moon-hero__status-dot" />
+              <div class="vannot-hero__status">
+                <span class="vannot-hero__status-dot" />
                 <span>{{ instance.runtime.minecraft || 'Minecraft Java' }}</span>
-                <span class="moon-hero__separator">/</span>
+                <span class="vannot-hero__separator">/</span>
                 <span>{{ t('instance.name', 1) }}</span>
               </div>
-              <v-btn data-testid="moon-play" color="primary" size="large" variant="flat" class="moon-hero__play mt-5" @click="onLaunchClick()">
+              <v-btn data-testid="vannot-play" color="primary" size="large" variant="flat" class="vannot-hero__play mt-5" @click="onLaunchClick()">
                 <v-icon start>play_arrow</v-icon>
                 {{ launchText }}
               </v-btn>
             </div>
           </section>
-          <section class="moon-quick-access mx-3 mb-8 grid gap-4" data-testid="moon-quick-access">
-            <div class="moon-quick-access__group">
-              <h2 class="moon-quick-access__heading">
-                <span class="moon-quick-access__index">01</span>
-                <v-icon class="moon-section-icon" size="18">explore</v-icon>
+          <section class="vannot-quick-access mx-3 mb-8 grid gap-4" data-testid="vannot-quick-access">
+            <div class="vannot-quick-access__group">
+              <h2 class="vannot-quick-access__heading">
+                <span class="vannot-quick-access__index">01</span>
+                <v-icon class="vannot-section-icon" size="18">explore</v-icon>
                 {{ t('store.discover') }}
               </h2>
-              <div class="moon-quick-access__grid">
+              <div class="vannot-quick-access__grid">
                 <v-btn
                   v-for="action in downloadActions"
                   :key="action.id"
-                  :data-testid="\`moon-download-\${action.id}\`"
+                  :data-testid="\`vannot-download-\${action.id}\`"
                   :to="action.to"
                   block
                   variant="tonal"
                   color="primary"
-                  class="moon-action-button min-h-12 justify-start text-left"
+                  class="vannot-action-button min-h-12 justify-start text-left"
                 >
-                  <v-icon start class="moon-action-button__icon">{{ action.icon }}</v-icon>
+                  <v-icon start class="vannot-action-button__icon">{{ action.icon }}</v-icon>
                   {{ action.label }}
                 </v-btn>
               </div>
             </div>
-            <div class="moon-quick-access__group">
-              <h2 class="moon-quick-access__heading">
-                <span class="moon-quick-access__index">02</span>
-                <v-icon class="moon-section-icon" size="18">tune</v-icon>
+            <div class="vannot-quick-access__group">
+              <h2 class="vannot-quick-access__heading">
+                <span class="vannot-quick-access__index">02</span>
+                <v-icon class="vannot-section-icon" size="18">tune</v-icon>
                 {{ t('shared.manage') }}
               </h2>
-              <div class="moon-quick-access__grid">
+              <div class="vannot-quick-access__grid">
                 <v-btn
                   v-for="action in manageActions"
                   :key="action.id"
-                  :data-testid="\`moon-manage-\${action.id}\`"
+                  :data-testid="\`vannot-manage-\${action.id}\`"
                   :to="action.to"
                   block
                   variant="outlined"
-                  class="moon-action-button min-h-12 justify-start text-left"
+                  class="vannot-action-button min-h-12 justify-start text-left"
                 >
-                  <v-icon start class="moon-action-button__icon">{{ action.icon }}</v-icon>
+                  <v-icon start class="vannot-action-button__icon">{{ action.icon }}</v-icon>
                   {{ action.label }}
                 </v-btn>
                 <v-btn
-                  data-testid="moon-import-modpack"
+                  data-testid="vannot-import-modpack"
                   block
                   variant="outlined"
-                  class="moon-action-button min-h-12 justify-start text-left"
+                  class="vannot-action-button min-h-12 justify-start text-left"
                   :loading="importingModpack"
                   @click="importModpack"
                 >
-                  <v-icon start class="moon-action-button__icon">drive_folder_upload</v-icon>
+                  <v-icon start class="vannot-action-button__icon">drive_folder_upload</v-icon>
                   {{ t('instance.installModpack') }}
                 </v-btn>              </div>
             </div>
@@ -310,16 +310,16 @@ await rebrandTextFiles(path.join(renderer, 'locales'));
 await replaceOnce(
   sidebarView,
   "import PlayerAvatar from '@/components/PlayerAvatar.vue'",
-  "import moonLogo from '@/assets/moon-logo.png'\nimport PlayerAvatar from '@/components/PlayerAvatar.vue'",
+  "import vannotLogo from '@/assets/vannot-logo.png'\nimport PlayerAvatar from '@/components/PlayerAvatar.vue'",
 );
 await replaceOnce(
   sidebarView,
   `    <div v-roving-tabindex role="group" class="sidebar__section">
       <button
         v-shared-tooltip.right="() => t('shared.back')"`,
-  `    <div class="moon-sidebar-brand" aria-label="Moon Launcher">
-      <img :src="moonLogo" alt="" />
-      <span>MOON</span>
+  `    <div class="vannot-sidebar-brand" aria-label="Vannot Launcher">
+      <img :src="vannotLogo" alt="" />
+      <span>VANNOT</span>
     </div>
     <div v-roving-tabindex role="group" class="sidebar__section">
       <button
@@ -331,9 +331,9 @@ await replaceOnce(
       <v-btn
         v-shared-tooltip.bottom="t('shared.back')"`,
   `    <div v-roving-tabindex role="group" class="flex flex-row items-center flex-grow-0">
-      <div class="moon-sidebar-brand moon-sidebar-brand--horizontal" aria-label="Moon Launcher">
-        <img :src="moonLogo" alt="" />
-        <span>MOON</span>
+      <div class="vannot-sidebar-brand vannot-sidebar-brand--horizontal" aria-label="Vannot Launcher">
+        <img :src="vannotLogo" alt="" />
+        <span>VANNOT</span>
       </div>
       <v-btn
         v-shared-tooltip.bottom="t('shared.back')"`,
@@ -341,7 +341,7 @@ await replaceOnce(
 await replaceOnce(
   sidebarView,
   '</style>',
-  `.moon-sidebar-brand {
+  `.vannot-sidebar-brand {
   display: flex;
   flex: none;
   flex-direction: column;
@@ -353,21 +353,21 @@ await replaceOnce(
   font-weight: 800;
 }
 
-.moon-sidebar-brand img {
+.vannot-sidebar-brand img {
   width: 34px;
   height: 34px;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: 9px;
 }
 
-.moon-sidebar-brand--horizontal {
+.vannot-sidebar-brand--horizontal {
   flex-direction: row;
   gap: 7px;
   margin: 0 8px 0 2px;
   font-size: 10px;
 }
 
-.moon-sidebar-brand--horizontal img {
+.vannot-sidebar-brand--horizontal img {
   width: 28px;
   height: 28px;
 }
@@ -486,7 +486,7 @@ await replaceOnce(
   '</script>',
   `</script>
 <style>
-.moon-hero {
+.vannot-hero {
   position: relative;
   isolation: isolate;
   display: flex;
@@ -498,7 +498,7 @@ await replaceOnce(
   background: #151d1b;
 }
 
-.moon-hero__art {
+.vannot-hero__art {
   position: absolute;
   inset: 0;
   z-index: -2;
@@ -509,7 +509,7 @@ await replaceOnce(
   filter: saturate(0.9) contrast(1.04);
 }
 
-.moon-hero::after {
+.vannot-hero::after {
   position: absolute;
   inset: 0;
   z-index: -1;
@@ -517,7 +517,7 @@ await replaceOnce(
   background: linear-gradient(90deg, rgba(13, 19, 18, 0.97) 0%, rgba(13, 19, 18, 0.82) 48%, rgba(13, 19, 18, 0.12) 100%);
 }
 
-.moon-hero__content {
+.vannot-hero__content {
   display: flex;
   width: min(720px, 78%);
   flex-direction: column;
@@ -526,13 +526,13 @@ await replaceOnce(
   color: #f3f4ec;
 }
 
-.moon-hero__brandline {
+.vannot-hero__brandline {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.moon-hero__logo {
+.vannot-hero__logo {
   width: 52px;
   height: 52px;
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -540,29 +540,29 @@ await replaceOnce(
   object-fit: cover;
 }
 
-.moon-hero__wordmark {
+.vannot-hero__wordmark {
   font-size: 12px;
   font-weight: 800;
   line-height: 1.4;
 }
 
-.moon-hero__caption {
+.vannot-hero__caption {
   color: rgba(243, 244, 236, 0.66);
   font-size: 10px;
   line-height: 1.5;
 }
 
-.moon-hero__eyebrow {
+.vannot-hero__eyebrow {
   display: flex;
   align-items: center;
   gap: 7px;
   margin-top: 24px;
-  color: #f2b56b;
+  color: #E4B85D;
   font-size: 11px;
   font-weight: 700;
 }
 
-.moon-hero h1 {
+.vannot-hero h1 {
   margin: 10px 0 8px;
   color: #f3f4ec;
   font-size: 36px;
@@ -571,7 +571,7 @@ await replaceOnce(
   overflow-wrap: anywhere;
 }
 
-.moon-hero__status {
+.vannot-hero__status {
   display: flex;
   align-items: center;
   gap: 9px;
@@ -579,30 +579,30 @@ await replaceOnce(
   font-size: 12px;
 }
 
-.moon-hero__status-dot {
+.vannot-hero__status-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #c5ee58;
+  background: #b9f27a;
   box-shadow: 0 0 10px rgba(197, 238, 88, 0.6);
 }
 
-.moon-hero__separator {
+.vannot-hero__separator {
   opacity: 0.5;
 }
 
-.moon-hero__play {
+.vannot-hero__play {
   min-width: 174px;
   min-height: 50px;
   border-radius: 6px;
   font-weight: 750;
 }
 
-.moon-quick-access {
+.vannot-quick-access {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.moon-quick-access__group {
+.vannot-quick-access__group {
   min-width: 0;
   padding: 18px;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
@@ -610,7 +610,7 @@ await replaceOnce(
   background: rgba(var(--v-theme-surface), 0.56);
 }
 
-.moon-quick-access__heading {
+.vannot-quick-access__heading {
   display: flex;
   align-items: center;
   gap: 9px;
@@ -619,13 +619,13 @@ await replaceOnce(
   font-weight: 700;
 }
 
-.moon-quick-access__index {
+.vannot-quick-access__index {
   color: rgb(var(--v-theme-primary));
   font-size: 10px;
   font-variant-numeric: tabular-nums;
 }
 
-.moon-section-icon {
+.vannot-section-icon {
   display: grid;
   width: 32px;
   height: 32px;
@@ -634,20 +634,20 @@ await replaceOnce(
   color: rgb(var(--v-theme-accent));
 }
 
-.moon-quick-access__grid {
+.vannot-quick-access__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
-.moon-action-button {
+.vannot-action-button {
   justify-content: flex-start;
   min-width: 0;
   padding-inline: 12px;
   text-align: left;
 }
 
-.moon-action-button .moon-action-button__icon {
+.vannot-action-button .vannot-action-button__icon {
   display: grid;
   flex: none;
   width: 34px;
@@ -697,22 +697,22 @@ await replaceOnce(
 }
 
 @media (max-width: 1000px) {
-  .moon-quick-access {
+  .vannot-quick-access {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
 @media (max-width: 700px) {
-  .moon-hero {
+  .vannot-hero {
     min-height: 270px;
   }
 
-  .moon-hero__content {
+  .vannot-hero__content {
     width: 100%;
     padding: 22px;
   }
 
-  .moon-hero h1 {
+  .vannot-hero h1 {
     font-size: 28px;
   }
 }
@@ -787,14 +787,14 @@ const rendererAssets = path.join(renderer, 'src/assets');
 const electronIcons = path.join(electronApp, 'icons');
 await mkdir(rendererAssets, { recursive: true });
 await mkdir(electronIcons, { recursive: true });
-await generateMoonAssets(electronIcons);
-await copyFile(path.join(electronIcons, 'moon-logo.png'), path.join(rendererAssets, 'moon-logo.png'));
-await copyFile(path.join(renderer, 'src/assets/banners/1.20.webp'), path.join(rendererAssets, 'moon-hero.webp'));
+await generateVannotAssets(electronIcons);
+await copyFile(path.join(electronIcons, 'vannot-logo.png'), path.join(rendererAssets, 'vannot-logo.png'));
+await copyFile(path.join(renderer, 'src/assets/banners/1.20.webp'), path.join(rendererAssets, 'vannot-hero.webp'));
 
 const electronController = path.join(electronApp, 'main/ElectronController.ts');
 const electronControllerSource = await readFile(electronController, 'utf8');
 const brandedController = electronControllerSource
-  .replaceAll('XMCL Launcher', 'Moon Launcher')
+  .replaceAll('XMCL Launcher', 'Vannot Launcher')
   .replace(
     `    browser.loadURL(url.toString())
 
@@ -802,7 +802,7 @@ const brandedController = electronControllerSource
     `    browser.loadURL(url.toString())
 
     // Some Windows GPU drivers never emit ready-to-show. A bounded fallback
-    // prevents Moon from remaining on a permanent loading screen.
+    // prevents Vannot from remaining on a permanent loading screen.
     setTimeout(() => {
       if (!browser.isDestroyed() && !browser.isVisible()) {
         browser.show()
@@ -813,7 +813,7 @@ const brandedController = electronControllerSource
     this.logger.log(\`Load main window url \${url.toString()}\`)`,
   );
 if (brandedController === electronControllerSource) {
-  throw new Error('Failed to apply the Moon launcher window stability patch.');
+  throw new Error('Failed to apply the Vannot launcher window stability patch.');
 }
 await writeFile(electronController, brandedController);
 
@@ -826,6 +826,6 @@ const upstreamLicense = await readFile(path.join(xmclRoot, 'LICENSE'), 'utf8');
 const notices = await readFile(path.join(projectRoot, 'windows/THIRD_PARTY_NOTICES.md'), 'utf8');
 const appBuild = path.join(electronApp, 'build');
 await mkdir(appBuild, { recursive: true });
-await writeFile(path.join(appBuild, 'Moon-Third-Party-Notices.txt'), `${notices}\n\n${upstreamLicense}`);
+await writeFile(path.join(appBuild, 'Vannot-Third-Party-Notices.txt'), `${notices}\n\n${upstreamLicense}`);
 const releasePlatform = releaseTag.startsWith('linux-v') ? 'Linux' : 'Windows';
-console.log(`Prepared Moon Launcher ${releasePlatform} ${appVersion}.`);
+console.log(`Prepared Vannot Launcher ${releasePlatform} ${appVersion}.`);

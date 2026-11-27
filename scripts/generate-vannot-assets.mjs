@@ -4,11 +4,17 @@ import { deflateSync } from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 
 const colors = {
-  background: [16, 18, 15, 255],
-  lime: [197, 238, 88, 255],
-  coral: [225, 126, 90, 255],
-  ivory: [238, 238, 222, 255],
+  background: [11, 17, 13, 255],
+  mint: [185, 242, 122, 255],
+  green: [112, 216, 155, 255],
+  ink: [16, 33, 24, 255],
+  ivory: [240, 255, 217, 255],
 };
+
+const vMark = [
+  [56, 59], [95, 59], [128, 128], [161, 59],
+  [200, 59], [143, 198], [113, 198]
+].map(([x, y]) => [x / 256, y / 256]);
 
 const densities = [
   ['mdpi', 1],
@@ -19,27 +25,43 @@ const densities = [
 ];
 
 function colorAt(x, y, foregroundOnly, backgroundOnly) {
-  if (backgroundOnly) return colors.background;
+  const tileLeft = 12 / 256;
+  const tileRight = 244 / 256;
+  const cornerRadius = 60 / 256;
+  const cornerX = Math.min(Math.max(x, 72 / 256), 184 / 256);
+  const cornerY = Math.min(Math.max(y, 72 / 256), 184 / 256);
+  const inTile = x >= tileLeft
+    && x <= tileRight
+    && y >= tileLeft
+    && y <= tileRight
+    && (x - cornerX) ** 2 + (y - cornerY) ** 2 <= cornerRadius ** 2;
+  const inV = pointInPolygon(x, y, vMark);
+  const inHighlight = x >= 174 / 256 && x <= 201 / 256 && y >= 174 / 256 && y <= 201 / 256;
 
-  const moon = (x - 0.42) ** 2 + (y - 0.47) ** 2 <= 0.265 ** 2;
-  const shadow = (x - 0.56) ** 2 + (y - 0.36) ** 2 <= 0.25 ** 2;
-  if (moon && !shadow) return colors.lime;
-
-  const portal = Math.abs(x - 0.68) + Math.abs(y - 0.69) <= 0.105;
-  if (portal) {
-    if (Math.abs(x - 0.68) < 0.026 && Math.abs(y - 0.69) < 0.026) {
-      return colors.background;
-    }
-    return colors.coral;
+  if (foregroundOnly) {
+    if (inV) return colors.mint;
+    if (inHighlight) return colors.ivory;
+    return [0, 0, 0, 0];
   }
+  if (!inTile) return [0, 0, 0, 0];
+  if (backgroundOnly) return colors.background;
+  if (inV) return colors.ink;
+  if (inHighlight) return colors.ivory;
 
-  const largeStar = Math.abs(x - 0.74) + Math.abs(y - 0.25) <= 0.045;
-  if (largeStar) return colors.ivory;
+  const blend = Math.min(1, Math.max(0, (x + y - 0.18) / 1.64));
+  return colors.mint.map((channel, index) => Math.round(channel + (colors.green[index] - channel) * blend));
+}
 
-  const smallStar = Math.abs(x - 0.25) + Math.abs(y - 0.69) <= 0.022;
-  if (smallStar) return colors.coral;
-
-  return foregroundOnly ? [0, 0, 0, 0] : colors.background;
+function pointInPolygon(x, y, points) {
+  let inside = false;
+  for (let index = 0, previous = points.length - 1; index < points.length; previous = index, index += 1) {
+    const [currentX, currentY] = points[index];
+    const [previousX, previousY] = points[previous];
+    const crosses = (currentY > y) !== (previousY > y)
+      && x < (previousX - currentX) * (y - currentY) / (previousY - currentY) + currentX;
+    if (crosses) inside = !inside;
+  }
+  return inside;
 }
 
 function renderPng(size, foregroundOnly = false, backgroundOnly = false) {
@@ -125,7 +147,7 @@ function createIco(images) {
   return Buffer.concat([directory, ...images.map(({ png }) => png)]);
 }
 
-export async function generateMoonAssets(outputDirectory) {
+export async function generateVannotAssets(outputDirectory) {
   await mkdir(outputDirectory, { recursive: true });
 
   const desktopSizes = [16, 24, 32, 48, 64, 128, 256];
@@ -133,11 +155,11 @@ export async function generateMoonAssets(outputDirectory) {
   for (const size of desktopSizes) {
     const png = renderPng(size);
     desktopImages.push({ size, png });
-    await writeFile(path.join(outputDirectory, `moon-${size}.png`), png);
+    await writeFile(path.join(outputDirectory, `vannot-${size}.png`), png);
   }
-  await writeFile(path.join(outputDirectory, 'moon.ico'), createIco(desktopImages));
+  await writeFile(path.join(outputDirectory, 'vannot.ico'), createIco(desktopImages));
 
-  await generateMoonLogo(path.join(outputDirectory, 'moon-logo.png'));
+  await generateVannotLogo(path.join(outputDirectory, 'vannot-logo.png'));
 
   for (const [density, scale] of densities) {
     const iconSize = Math.round(48 * scale);
@@ -148,12 +170,12 @@ export async function generateMoonAssets(outputDirectory) {
   }
 }
 
-export async function generateMoonLogo(outputFile) {
+export async function generateVannotLogo(outputFile) {
   await mkdir(path.dirname(outputFile), { recursive: true });
   await writeFile(outputFile, renderPng(256));
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  if (!process.argv[2]) throw new Error('Pass the output directory for generated Moon assets.');
-  await generateMoonAssets(path.resolve(process.argv[2]));
+  if (!process.argv[2]) throw new Error('Pass the output directory for generated Vannot assets.');
+  await generateVannotAssets(path.resolve(process.argv[2]));
 }

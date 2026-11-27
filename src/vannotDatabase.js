@@ -55,7 +55,7 @@ function saveDatabase(database) {
   try {
     localStorage.setItem(DATABASE_KEY, JSON.stringify(normalized));
   } catch (error) {
-    console.error('Moon database could not be saved.', error);
+    console.error('Vannot database could not be saved.', error);
     throw error;
   }
   return normalized;
@@ -72,7 +72,7 @@ function migrateLegacyData(database) {
   };
 }
 
-export function getMoonDatabase() {
+export function getVannotDatabase() {
   const raw = localStorage.getItem(DATABASE_KEY);
   let database;
   try {
@@ -87,32 +87,32 @@ export function getMoonDatabase() {
   return saveDatabase(database);
 }
 
-export function updateMoonDatabase(updater) {
-  const current = getMoonDatabase();
+export function updateVannotDatabase(updater) {
+  const current = getVannotDatabase();
   const next = typeof updater === 'function' ? updater(current) : updater;
   return saveDatabase(next);
 }
 
-export function getMoonSetting(key, fallback) {
-  const settings = getMoonDatabase().settings;
+export function getVannotSetting(key, fallback) {
+  const settings = getVannotDatabase().settings;
   return Object.prototype.hasOwnProperty.call(settings, key) ? settings[key] : fallback;
 }
 
-export function setMoonSetting(key, value) {
-  updateMoonDatabase((database) => ({
+export function setVannotSetting(key, value) {
+  updateVannotDatabase((database) => ({
     ...database,
     settings: { ...database.settings, [key]: value },
   }));
 }
 
-export function exportMoonDatabase() {
-  return JSON.stringify(getMoonDatabase(), null, 2);
+export function exportVannotDatabase() {
+  return JSON.stringify(getVannotDatabase(), null, 2);
 }
 
-export function importMoonDatabase(serialized) {
+export function importVannotDatabase(serialized) {
   const parsed = JSON.parse(serialized);
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('Format database Moon tidak valid.');
+    throw new Error('Format database Vannot tidak valid.');
   }
   return saveDatabase(normalizeDatabase(parsed));
 }

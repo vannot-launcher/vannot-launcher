@@ -17,9 +17,9 @@
 
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/noom_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_noom_launcher</item>
+        <item name="windowSplashScreenBackground">@color/vannot_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_vannot_launcher</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
-        <item name="android:background">@color/noom_background</item>
+        <item name="android:background">@color/vannot_background</item>
     </style>
 </resources>

@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="noom_background">#10120F</color>
+    <color name="vannot_background">#0B110D</color>
+    <color name="colorPrimary">#B9F27A</color>
+    <color name="colorPrimaryDark">#0B110D</color>
+    <color name="colorAccent">#E4B85D</color>
 </resources>

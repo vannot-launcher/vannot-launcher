@@ -1,8 +1,8 @@
 {
-  "name": "moon-launcher",
+  "name": "vannot-launcher",
   "version": "2.1.2-beta.1",
-  "description": "Moon Launcher for Minecraft Java Edition",
-  "author": "himamsuper-cpu",
+  "description": "Vannot Launcher for Minecraft Java Edition",
+  "author": "Vannot Launcher contributors",
   "license": "MIT",
   "scripts": {
     "dev": "vite --host 127.0.0.1",

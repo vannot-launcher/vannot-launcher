@@ -1,7 +1,7 @@
 import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { generateMoonAssets } from '../scripts/generate-moon-assets.mjs';
+import { generateVannotAssets } from '../scripts/generate-vannot-assets.mjs';
 
 const runtimeRoot = path.resolve(process.argv[2] || '');
 if (!process.argv[2]) throw new Error('Pass the checked-out Android runtime directory.');
@@ -25,19 +25,19 @@ async function replaceOnce(file, before, after) {
 const appRoot = path.join(runtimeRoot, 'app_pojavlauncher');
 const gradleFile = path.join(appRoot, 'build.gradle');
 const gradleChanges = [
-  ['applicationId "org.angelauramc.amethyst"', 'applicationId "id.noom.launcher"'],
+  ['applicationId "org.angelauramc.amethyst"', 'applicationId "id.vannot.launcher"'],
   ['versionCode 10000000', `versionCode ${versionCode}`],
   ['versionName getVersionName()', `versionName "${appVersion}"`],
   ["applicationIdSuffix '.debug'", "applicationIdSuffix ''"],
-  ['resValue "string", "app_name", "Amethyst (Debug)"', 'resValue "string", "app_name", "Moon Launcher"'],
-  ['resValue "string", "app_short_name", "Amethyst (Debug)"', 'resValue "string", "app_short_name", "Moon Launcher"'],
-  ["resValue 'string', 'application_package', 'org.angelauramc.amethyst.debug'", "resValue 'string', 'application_package', 'id.noom.launcher'"],
-  ["resValue 'string', 'storageProviderAuthorities', 'org.angelauramc.amethyst.scoped.gamefolder.debug'", "resValue 'string', 'storageProviderAuthorities', 'id.noom.launcher.scoped.gamefolder'"],
-  ["resValue 'string', 'shareProviderAuthority', 'org.angelauramc.amethyst.scoped.controlfolder.debug'", "resValue 'string', 'shareProviderAuthority', 'id.noom.launcher.scoped.controlfolder'"],
-  ['resValue "string", "app_name", "Amethyst"', 'resValue "string", "app_name", "Moon Launcher"'],
-  ['resValue "string", "app_short_name", "Amethyst"', 'resValue "string", "app_short_name", "Moon Launcher"'],
-  ["resValue 'string', 'application_package', 'org.angelauramc.amethyst'", "resValue 'string', 'application_package', 'id.noom.launcher'"],
-  ["resValue 'string', 'storageProviderAuthorities', 'org.angelauramc.amethyst.scoped.gamefolder'", "resValue 'string', 'storageProviderAuthorities', 'id.noom.launcher.scoped.gamefolder'"],
+  ['resValue "string", "app_name", "Amethyst (Debug)"', 'resValue "string", "app_name", "Vannot Launcher"'],
+  ['resValue "string", "app_short_name", "Amethyst (Debug)"', 'resValue "string", "app_short_name", "Vannot Launcher"'],
+  ["resValue 'string', 'application_package', 'org.angelauramc.amethyst.debug'", "resValue 'string', 'application_package', 'id.vannot.launcher'"],
+  ["resValue 'string', 'storageProviderAuthorities', 'org.angelauramc.amethyst.scoped.gamefolder.debug'", "resValue 'string', 'storageProviderAuthorities', 'id.vannot.launcher.scoped.gamefolder'"],
+  ["resValue 'string', 'shareProviderAuthority', 'org.angelauramc.amethyst.scoped.controlfolder.debug'", "resValue 'string', 'shareProviderAuthority', 'id.vannot.launcher.scoped.controlfolder'"],
+  ['resValue "string", "app_name", "Amethyst"', 'resValue "string", "app_name", "Vannot Launcher"'],
+  ['resValue "string", "app_short_name", "Amethyst"', 'resValue "string", "app_short_name", "Vannot Launcher"'],
+  ["resValue 'string', 'application_package', 'org.angelauramc.amethyst'", "resValue 'string', 'application_package', 'id.vannot.launcher'"],
+  ["resValue 'string', 'storageProviderAuthorities', 'org.angelauramc.amethyst.scoped.gamefolder'", "resValue 'string', 'storageProviderAuthorities', 'id.vannot.launcher.scoped.gamefolder'"],
 ];
 for (const [before, after] of gradleChanges) await replaceOnce(gradleFile, before, after);
 
@@ -48,7 +48,7 @@ async function rebrandStrings(directory) {
       await rebrandStrings(file);
     } else if (entry.name.endsWith('.xml')) {
       const source = await readFile(file, 'utf8');
-      const branded = source.replaceAll('Amethyst', 'Moon Launcher');
+      const branded = source.replaceAll('Amethyst', 'Vannot Launcher');
       if (source !== branded) await writeFile(file, branded);
     }
   }
@@ -65,7 +65,7 @@ await replaceOnce(
     </style>`,
   `<style name="LauncherMenuButton.Universal" parent="LauncherMenuButton">
         <item name="android:layout_height">@dimen/_66sdp</item>
-        <item name="android:background">@drawable/moon_action_background</item>
+        <item name="android:background">@drawable/vannot_action_background</item>
         <item name="android:textColor">@color/primary_text</item>
         <item name="android:textAllCaps">false</item>
         <item name="android:drawablePadding">@dimen/padding_medium</item>
@@ -74,7 +74,7 @@ await replaceOnce(
     </style>`,
 );
 await writeFile(
-  path.join(resources, 'drawable/moon_dashboard_hero.xml'),
+  path.join(resources, 'drawable/vannot_dashboard_hero.xml'),
   `<?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
     <corners android:radius="14dp" />
@@ -84,7 +84,7 @@ await writeFile(
 `,
 );
 await writeFile(
-  path.join(resources, 'drawable/moon_action_surface.xml'),
+  path.join(resources, 'drawable/vannot_action_surface.xml'),
   `<?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
     <corners android:radius="10dp" />
@@ -94,16 +94,16 @@ await writeFile(
 `,
 );
 await writeFile(
-  path.join(resources, 'drawable/moon_action_background.xml'),
+  path.join(resources, 'drawable/vannot_action_background.xml'),
   `<?xml version="1.0" encoding="utf-8"?>
 <ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="#3379CBA4">
-    <item android:drawable="@drawable/moon_action_surface" />
+    <item android:drawable="@drawable/vannot_action_surface" />
 </ripple>
 `,
 );
 const colorsFile = path.join(resources, 'values/colors.xml');
 for (const [before, after] of [
-  ['<color name="minebutton_color">#9649b8</color>', '<color name="minebutton_color">#C5EE58</color>'],
+  ['<color name="minebutton_color">#9649b8</color>', '<color name="minebutton_color">#B9F27A</color>'],
   ['<color name="background_app">#181818</color>', '<color name="background_app">#10120F</color>'],
   ['<color name="background_overlay">#464646</color>', '<color name="background_overlay">#292D26</color>'],
   ['<color name="background_status_bar">#242424</color>', '<color name="background_status_bar">#10120F</color>'],
@@ -115,13 +115,13 @@ for (const [before, after] of [
 await replaceOnce(
   colorsFile,
   '</resources>',
-  '    <color name="moon_accent">#C5EE58</color>\n</resources>',
+  '    <color name="vannot_accent">#B9F27A</color>\n</resources>',
 );
 
 await replaceOnce(
   stylesFile,
   '<item name="windowActionBar">false</item>',
-  '<item name="windowActionBar">false</item>\n        <item name="colorAccent">@color/moon_accent</item>\n        <item name="android:colorAccent">@color/moon_accent</item>',
+  '<item name="windowActionBar">false</item>\n        <item name="colorAccent">@color/vannot_accent</item>\n        <item name="android:colorAccent">@color/vannot_accent</item>',
 );
 
 await replaceOnce(
@@ -132,13 +132,13 @@ await replaceOnce(
 
 const launcherLayout = path.join(resources, 'layout/fragment_launcher.xml');
 const newsButtonAnchor = '\t\t\t<com.kdt.mcgui.LauncherMenuButton\n\t\t\t\tandroid:id="@+id/news_button"';
-const moonHeader = `\t\t\t<LinearLayout
-				android:id="@+id/moon_brand_header"
+const vannotHeader = `\t\t\t<LinearLayout
+				android:id="@+id/vannot_brand_header"
 				android:layout_width="match_parent"
 				android:layout_height="wrap_content"
 				android:layout_marginHorizontal="@dimen/padding_medium"
 				android:layout_marginTop="@dimen/padding_medium"
-        android:background="@drawable/moon_dashboard_hero"
+        android:background="@drawable/vannot_dashboard_hero"
 				android:gravity="center_vertical"
 				android:orientation="horizontal"
 				android:padding="@dimen/padding_medium"
@@ -168,43 +168,43 @@ const moonHeader = `\t\t\t<LinearLayout
 						android:layout_width="match_parent"
 						android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/padding_tiny"
-            android:text="@string/moon_launcher_tagline"
-            android:textColor="@color/moon_accent"
+            android:text="@string/vannot_launcher_tagline"
+            android:textColor="@color/vannot_accent"
             android:textSize="@dimen/_9ssp"
             android:textStyle="bold" />
           <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/padding_tiny"
-            android:text="@string/moon_launcher_subtitle"
+            android:text="@string/vannot_launcher_subtitle"
             android:textColor="@color/secondary_text"
             android:textSize="@dimen/_8ssp" />
 				</LinearLayout>
 			</LinearLayout>
 
       <TextView
-        android:id="@+id/moon_quick_access_title"
+        android:id="@+id/vannot_quick_access_title"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="@dimen/padding_medium"
         android:layout_marginTop="@dimen/padding_medium"
-        android:text="@string/moon_quick_access_title"
+        android:text="@string/vannot_quick_access_title"
         android:textColor="@color/primary_text"
         android:textSize="@dimen/_11ssp"
         android:textStyle="bold"
-        app:layout_constraintTop_toBottomOf="@id/moon_brand_header" />
+        app:layout_constraintTop_toBottomOf="@id/vannot_brand_header" />
 
 ${newsButtonAnchor}`;
-await replaceOnce(launcherLayout, newsButtonAnchor, moonHeader);
+await replaceOnce(launcherLayout, newsButtonAnchor, vannotHeader);
 await replaceOnce(
   launcherLayout,
   'app:layout_constraintTop_toTopOf="parent"\n\t\t\t\tapp:layout_constraintStart_toStartOf="parent"\n\t\t\t\tapp:layout_constraintEnd_toStartOf="@id/social_divider"',
-  'app:layout_constraintTop_toBottomOf="@id/moon_quick_access_title"\n\t\t\t\tapp:layout_constraintStart_toStartOf="parent"\n\t\t\t\tapp:layout_constraintEnd_toStartOf="@id/social_divider"',
+  'app:layout_constraintTop_toBottomOf="@id/vannot_quick_access_title"\n\t\t\t\tapp:layout_constraintStart_toStartOf="parent"\n\t\t\t\tapp:layout_constraintEnd_toStartOf="@id/social_divider"',
 );
 await replaceOnce(
   launcherLayout,
   'app:layout_constraintTop_toTopOf="parent"\n\t\t\t\tapp:layout_constraintStart_toEndOf="@id/social_divider"',
-  'app:layout_constraintTop_toBottomOf="@id/moon_quick_access_title"\n\t\t\t\tapp:layout_constraintStart_toEndOf="@id/social_divider"',
+  'app:layout_constraintTop_toBottomOf="@id/vannot_quick_access_title"\n\t\t\t\tapp:layout_constraintStart_toEndOf="@id/social_divider"',
 );
 await replaceOnce(
   launcherLayout,
@@ -215,7 +215,7 @@ await replaceOnce(
   `android:id="@+id/social_divider"
 				style="@style/LauncherFragment_Divider"
 				android:layout_marginVertical="@dimen/padding_large"
-				app:layout_constraintTop_toBottomOf="@id/moon_quick_access_title"`,
+				app:layout_constraintTop_toBottomOf="@id/vannot_quick_access_title"`,
 );
 await replaceOnce(
   launcherLayout,
@@ -256,7 +256,7 @@ await replaceOnce(
 await replaceOnce(
   launcherLayout,
   '\t\t\t<com.kdt.mcgui.LauncherMenuButton\n\t\t\t\tandroid:id="@+id/share_logs_button"',
-  '\t\t\t<com.kdt.mcgui.LauncherMenuButton\n\t\t\t\tandroid:id="@+id/modpack_button"\n\t\t\t\tstyle="@style/LauncherMenuButton.Universal"\n\t\t\t\tandroid:layout_width="0dp"\n\t\t\t\tandroid:layout_marginEnd="@dimen/padding_tiny"\n\t\t\t\tandroid:drawableStart="@drawable/ic_menu_install_jar"\n\t\t\t\tandroid:text="@string/moon_modpacks_shortcut"\n\t\t\t\tapp:layout_constraintTop_toBottomOf="@id/custom_control_button"\n\t\t\t\tapp:layout_constraintStart_toStartOf="parent"\n\t\t\t\tapp:layout_constraintEnd_toStartOf="@id/center_guideline" />\n\n\t\t\t<com.kdt.mcgui.LauncherMenuButton\n\t\t\t\tandroid:id="@+id/share_logs_button"',
+  '\t\t\t<com.kdt.mcgui.LauncherMenuButton\n\t\t\t\tandroid:id="@+id/modpack_button"\n\t\t\t\tstyle="@style/LauncherMenuButton.Universal"\n\t\t\t\tandroid:layout_width="0dp"\n\t\t\t\tandroid:layout_marginEnd="@dimen/padding_tiny"\n\t\t\t\tandroid:drawableStart="@drawable/ic_menu_install_jar"\n\t\t\t\tandroid:text="@string/vannot_modpacks_shortcut"\n\t\t\t\tapp:layout_constraintTop_toBottomOf="@id/custom_control_button"\n\t\t\t\tapp:layout_constraintStart_toStartOf="parent"\n\t\t\t\tapp:layout_constraintEnd_toStartOf="@id/center_guideline" />\n\n\t\t\t<com.kdt.mcgui.LauncherMenuButton\n\t\t\t\tandroid:id="@+id/share_logs_button"',
 );
 await replaceOnce(
   launcherLayout,
@@ -277,7 +277,7 @@ await replaceOnce(
 await replaceOnce(
   path.join(resources, 'values/strings.xml'),
   '</resources>',
-  '    <string name="moon_launcher_tagline">MINECRAFT JAVA EDITION</string>\n    <string name="moon_launcher_subtitle">YOUR WORLD. YOUR SETTINGS. ONE LAUNCHER.</string>\n    <string name="moon_quick_access_title">QUICK ACCESS</string>\n    <string name="moon_modpacks_shortcut">Modpacks</string>\n</resources>',
+  '    <string name="vannot_launcher_tagline">MINECRAFT JAVA EDITION</string>\n    <string name="vannot_launcher_subtitle">YOUR WORLD. YOUR SETTINGS. ONE LAUNCHER.</string>\n    <string name="vannot_quick_access_title">QUICK ACCESS</string>\n    <string name="vannot_modpacks_shortcut">Modpacks</string>\n</resources>',
 );
 
 const mainMenuFile = path.join(appRoot, 'src/main/java/net/kdt/pojavlaunch/fragments/MainMenuFragment.java');
@@ -292,9 +292,9 @@ await replaceOnce(
   'mCustomControlButton.setOnClickListener(v -> startActivity(new Intent(requireContext(), CustomControlsActivity.class)));\n        mModpackButton.setOnClickListener(v -> Tools.swapFragment(requireActivity(), ModpackCreateFragment.class, ModpackCreateFragment.TAG, null));',
 );
 
-const iconDirectory = await mkdtemp(path.join(os.tmpdir(), 'moon-android-icons-'));
+const iconDirectory = await mkdtemp(path.join(os.tmpdir(), 'vannot-android-icons-'));
 try {
-  await generateMoonAssets(iconDirectory);
+  await generateVannotAssets(iconDirectory);
   for (const density of ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi', 'xxxhdpi']) {
     const folder = path.join(resources, `mipmap-${density}`);
     await mkdir(folder, { recursive: true });
@@ -320,6 +320,6 @@ const upstreamLicense = await readFile(path.join(runtimeRoot, 'LICENSE'), 'utf8'
 const notices = await readFile(path.resolve('android/THIRD_PARTY_NOTICES.md'), 'utf8');
 const assets = path.join(appRoot, 'src/main/assets');
 await mkdir(assets, { recursive: true });
-await writeFile(path.join(assets, 'moon-third-party-notices.txt'), `${notices}\n\n${upstreamLicense}`);
+await writeFile(path.join(assets, 'vannot-third-party-notices.txt'), `${notices}\n\n${upstreamLicense}`);
 
-console.log(`Prepared standalone Moon Android launcher ${appVersion}.`);
+console.log(`Prepared standalone Vannot Android launcher ${appVersion}.`);

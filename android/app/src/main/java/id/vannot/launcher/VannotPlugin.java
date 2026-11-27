@@ -1,4 +1,4 @@
-package id.noom.launcher;
+package id.vannot.launcher;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -28,16 +28,16 @@ import java.util.concurrent.Executors;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-@CapacitorPlugin(name = "NoomAndroid")
-public class NoomPlugin extends Plugin {
-    private static final String PREFERENCES = "noom_launcher";
+@CapacitorPlugin(name = "VannotAndroid")
+public class VannotPlugin extends Plugin {
+    private static final String PREFERENCES = "vannot_launcher";
     private static final String MODS_FOLDER = "mods_folder_uri";
-    private static final String TAG = "NoomLauncher";
+    private static final String TAG = "VannotLauncher";
     private final ExecutorService downloads = Executors.newSingleThreadExecutor();
 
     @PluginMethod
     public void openPojavLauncher(PluginCall call) {
-        call.reject("Moon Launcher tidak membuka launcher eksternal. Gunakan APK Android standalone untuk menjalankan Minecraft.");
+        call.reject("Vannot Launcher tidak membuka launcher eksternal. Runtime native Vannot belum tersedia.");
     }
 
     @PluginMethod
@@ -67,7 +67,7 @@ public class NoomPlugin extends Plugin {
             response.put("configured", true);
             call.resolve(response);
         } catch (Exception error) {
-            call.reject("Moon Launcher tidak mendapat izin untuk folder tersebut.", error);
+            call.reject("Vannot Launcher tidak mendapat izin untuk folder tersebut.", error);
         }
     }
 
@@ -197,7 +197,7 @@ public class NoomPlugin extends Plugin {
         HttpURLConnection connection = (HttpURLConnection) api.openConnection();
         connection.setConnectTimeout(15000);
         connection.setReadTimeout(20000);
-        connection.setRequestProperty("User-Agent", "MoonLauncher/1.0 (https://github.com/himamsuper-cpu/la)");
+        connection.setRequestProperty("User-Agent", "VannotLauncher/1.0 (https://github.com/vannot-launcher/vannot-launcher)");
         try {
             if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) throw new Exception("Tidak ada versi mod Fabric yang cocok dengan game ini.");
             JSONArray versionsList = new JSONArray(readText(connection.getInputStream()));
@@ -224,7 +224,7 @@ public class NoomPlugin extends Plugin {
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setConnectTimeout(20000);
         connection.setReadTimeout(60000);
-        connection.setRequestProperty("User-Agent", "MoonLauncher/1.0 (https://github.com/himamsuper-cpu/la)");
+        connection.setRequestProperty("User-Agent", "VannotLauncher/1.0 (https://github.com/vannot-launcher/vannot-launcher)");
         Uri output = null;
         try {
             if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) throw new Exception("Unduhan mod gagal.");
@@ -255,7 +255,7 @@ public class NoomPlugin extends Plugin {
             connection.setInstanceFollowRedirects(false);
             connection.setConnectTimeout(20000);
             connection.setReadTimeout(60000);
-            connection.setRequestProperty("User-Agent", "MoonLauncher/1.0 (https://github.com/himamsuper-cpu/la)");
+            connection.setRequestProperty("User-Agent", "VannotLauncher/1.0 (https://github.com/vannot-launcher/vannot-launcher)");
             int responseCode = connection.getResponseCode();
             if (responseCode >= 300 && responseCode < 400) {
                 String location = connection.getHeaderField("Location");

@@ -1,4 +1,4 @@
-name: Android Foundation Build
+name: Android Preview Build
 
 on:
   push:
@@ -28,15 +28,32 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0 ndk;27.2.12479018'
 
-      - name: Build native Kotlin APK
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+
+      - name: Set Android NDK path
+        run: echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Test Rust core
+        run: cargo test --locked --manifest-path android/rust-core/Cargo.toml
+
+      - name: Build Rust Android libraries
+        run: cargo ndk -t arm64-v8a -t x86_64 -P 24 -o android/app/build/generated/jniLibs build --locked --manifest-path android/rust-core/Cargo.toml --release
+
+      - name: Test and build Android APK
         working-directory: android
-        run: ./gradlew --no-daemon assembleDebug
+        run: ./gradlew --no-daemon testDebugUnitTest assembleDebug
 
       - name: Upload development APK
         uses: actions/upload-artifact@v4
         with:
-          name: Vannot-Android-Foundation-0.1.0-dev
+          name: Vannot-Android-Preview-0.1.0-dev
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error

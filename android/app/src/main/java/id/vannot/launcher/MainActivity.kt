@@ -5,13 +5,25 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import org.json.JSONException
+import java.io.IOException
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
+
+private sealed interface CatalogSearchResult {
+    data class Success(val projects: List<ModrinthProject>) : CatalogSearchResult
+    data class Failure(val message: String) : CatalogSearchResult
+}
 
 class MainActivity : AppCompatActivity() {
     private enum class Section(val label: String) {
@@ -28,10 +40,15 @@ class MainActivity : AppCompatActivity() {
     private val amber = Color.rgb(228, 184, 93)
     private val ivory = Color.rgb(238, 243, 232)
     private val muted = Color.rgb(161, 176, 157)
+    private val gameVersion = RustCore.nativeGameVersion()
 
     private lateinit var pageContent: LinearLayout
     private lateinit var navigationBar: LinearLayout
     private var selectedSection = Section.HOME
+    private val catalogExecutor = Executors.newSingleThreadExecutor()
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val catalogClient = ModrinthCatalogClient()
+    private val catalogRequestId = AtomicInteger()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,6 +66,12 @@ class MainActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString(STATE_SECTION, selectedSection.name)
         super.onSaveInstanceState(outState)
+    }
+
+    override fun onDestroy() {
+        catalogRequestId.incrementAndGet()
+        catalogExecutor.shutdownNow()
+        super.onDestroy()
     }
 
     private fun createAppShell(): View {
@@ -100,7 +123,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(11), 0, 0, 0)
         }
         identity.addView(label("VANNOT", 14f, ivory, bold = true))
-        identity.addView(label("ANDROID FIELD BUILD", 9f, muted, bold = true))
+        identity.addView(label("ANDROID PREVIEW  ·  26.3", 9f, muted, bold = true))
         header.addView(identity, LinearLayout.LayoutParams(0, -2, 1f))
 
         val account = label("ACCOUNT  ·  OFF", 9f, muted, bold = true).apply {
@@ -167,12 +190,12 @@ class MainActivity : AppCompatActivity() {
                 setStroke(dp(1), Color.rgb(63, 83, 60))
             }
         }
-        hero.addView(label("VANNOT  /  FIELD NOTE 001", 9f, amber, bold = true))
+        hero.addView(label("VANNOT  /  MINECRAFT JAVA $gameVersion", 9f, amber, bold = true))
         hero.addView(label("Your next world\nstarts here.", 30f, ivory, bold = true).apply {
             setPadding(0, dp(15), 0, dp(9))
         })
         hero.addView(label(
-            "An original Android launcher foundation, built by the Vannot team.",
+            "An original Android launcher in development, targeting Minecraft Java $gameVersion.",
             13f,
             muted,
         ))
@@ -181,24 +204,24 @@ class MainActivity : AppCompatActivity() {
         })
         pageContent.addView(hero, cardLayout())
 
-        pageContent.addView(sectionHeading("BUILD STATUS", "01 / 03"))
+        pageContent.addView(sectionHeading("BUILD STATUS", "$gameVersion ONLY"))
         val status = card()
-        addStatusRow(status, "01", "Native Kotlin app", "READY", lime)
+        addStatusRow(status, "01", "Kotlin UI + Rust core", "READY", lime)
         addDivider(status)
         addStatusRow(status, "02", "Android Java runtime", "IN DEVELOPMENT", amber)
         addDivider(status)
-        addStatusRow(status, "03", "Minecraft install and launch", "NOT AVAILABLE", muted)
+        addStatusRow(status, "03", "Minecraft $gameVersion launch", "NOT AVAILABLE", muted)
         pageContent.addView(status, cardLayout())
 
         pageContent.addView(sectionHeading("QUICK ACCESS", "VANNOT"))
         val quickAccess = card()
         quickAccess.addView(label(
-            "The launcher shell is working. Game downloads, accounts, loaders, and mod installs are not connected yet.",
+            "The Modrinth catalog is filtered to Minecraft $gameVersion. Game installation, accounts, loaders, and mod installation are still in development.",
             13f,
             muted,
         ))
         val unavailable = Button(this).apply {
-            text = "GAME RUNTIME NOT AVAILABLE"
+            text = "MINECRAFT $gameVersion RUNTIME NOT AVAILABLE"
             isEnabled = false
             textSize = 11f
             setTextColor(muted)
@@ -214,24 +237,58 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderDiscover() {
-        pageContent.addView(sectionHeading("DISCOVER", "CONTENT ATLAS"))
-        val catalog = card(panelRaised)
-        catalog.addView(label("A new catalog is being built.", 22f, ivory, bold = true))
-        catalog.addView(label(
-            "This independent app does not bundle another launcher or pretend to download Minecraft. Mod and modpack browsing will be added after the game runtime and safe installation flow are ready.",
-            13f,
+        pageContent.addView(sectionHeading("MODRINTH", "MINECRAFT $gameVersion"))
+        pageContent.addView(label(
+            "Only mods marked compatible with Minecraft Java $gameVersion are requested. Downloads and loader installation are not enabled yet.",
+            12f,
             muted,
         ).apply {
-            setPadding(0, dp(10), 0, 0)
+            setPadding(dp(3), 0, dp(3), dp(12))
         })
-        catalog.addView(statusBadge("CATALOG NOT CONNECTED", amber).apply {
-            setPadding(0, dp(16), 0, 0)
+
+        val searchPanel = card(panelRaised)
+        val searchInput = EditText(this).apply {
+            hint = "Search $gameVersion mods"
+            setHintTextColor(muted)
+            setTextColor(ivory)
+            textSize = 14f
+            singleLine = true
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            background = rounded(panel, 10).apply {
+                setStroke(dp(1), Color.rgb(63, 83, 60))
+            }
+        }
+        searchPanel.addView(searchInput, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            dp(48),
+        ))
+
+        val results = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        val searchButton = Button(this).apply {
+            text = "SEARCH MODRINTH"
+            textSize = 11f
+            setTextColor(forest)
+            backgroundTintList = ColorStateList.valueOf(lime)
+            setOnClickListener {
+                searchCatalog(searchInput.text.toString(), results, this)
+            }
+        }
+        searchPanel.addView(searchButton, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            dp(46),
+        ).apply {
+            topMargin = dp(10)
         })
-        pageContent.addView(catalog, cardLayout())
-        pageContent.addView(sectionHeading("PLANNED", "AFTER RUNTIME"))
-        pageContent.addView(infoCard("Game versions", "Install verified Minecraft Java versions."))
-        pageContent.addView(infoCard("Loaders", "Fabric, Forge, and NeoForge after device compatibility testing."))
-        pageContent.addView(infoCard("Mods and packs", "Browse and install compatible community projects."))
+        searchPanel.addView(results, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+        ).apply {
+            topMargin = dp(12)
+        })
+        pageContent.addView(searchPanel, cardLayout())
+        searchCatalog("", results, searchButton)
     }
 
     private fun renderLibrary() {
@@ -261,7 +318,7 @@ class MainActivity : AppCompatActivity() {
         val note = card(panelRaised)
         note.addView(label("Built independently", 18f, ivory, bold = true))
         note.addView(label(
-            "This is Vannot's own native Kotlin app shell. It does not use another launcher's APK, source tree, or branding.",
+            "This is Vannot's own Kotlin UI and Rust core. It does not use another launcher's APK, source tree, or branding.",
             13f,
             muted,
         ).apply {
@@ -270,12 +327,64 @@ class MainActivity : AppCompatActivity() {
         pageContent.addView(note, cardLayout())
     }
 
-    private fun infoCard(title: String, description: String): View {
-        return card().apply {
-            addView(label(title, 16f, ivory, bold = true))
-            addView(label(description, 12f, muted).apply {
-                setPadding(0, dp(6), 0, 0)
-            })
+    private fun searchCatalog(query: String, results: LinearLayout, button: Button) {
+        val requestId = catalogRequestId.incrementAndGet()
+        button.isEnabled = false
+        results.removeAllViews()
+        results.addView(label("Loading Modrinth mods for $gameVersion...", 12f, muted))
+
+        catalogExecutor.execute {
+            val result = try {
+                CatalogSearchResult.Success(catalogClient.searchMods(query))
+            } catch (error: IOException) {
+                CatalogSearchResult.Failure(
+                    error.message ?: "Could not connect to Modrinth. Check your connection and retry.",
+                )
+            } catch (error: JSONException) {
+                CatalogSearchResult.Failure("Modrinth returned invalid catalog data. Retry later.")
+            }
+
+            mainHandler.post {
+                if (isFinishing || isDestroyed ||
+                    selectedSection != Section.DISCOVER ||
+                    requestId != catalogRequestId.get()
+                ) {
+                    return@post
+                }
+                button.isEnabled = true
+                results.removeAllViews()
+
+                when (result) {
+                    is CatalogSearchResult.Success -> {
+                        if (result.projects.isEmpty()) {
+                            results.addView(label("No matching $gameVersion mods found.", 12f, muted))
+                        } else {
+                            result.projects.forEachIndexed { index, project ->
+                                if (index > 0) addDivider(results)
+                                results.addView(label(project.title, 15f, ivory, bold = true))
+                                results.addView(label(
+                                    "${project.author}  ·  ${project.downloads} downloads",
+                                    10f,
+                                    lime,
+                                ).apply {
+                                    setPadding(0, dp(3), 0, dp(5))
+                                })
+                                results.addView(label(project.description, 11f, muted))
+                                results.addView(label(
+                                    "Download/install unavailable until the game runtime is ready.",
+                                    10f,
+                                    amber,
+                                ).apply {
+                                    setPadding(0, dp(6), 0, dp(9))
+                                })
+                            }
+                        }
+                    }
+
+                    is CatalogSearchResult.Failure ->
+                        results.addView(label(result.message, 12f, amber))
+                }
+            }
         }
     }
 

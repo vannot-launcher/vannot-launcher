@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Auth } = require('msmc');
 const { authenticateEly, invalidateEly, validateEly } = require('./ely-auth');
 const { resolveInsideRoot } = require('./minecraft-path');
+const { scanWithDefender } = require('./windows-antivirus');
 const {
   installCurseForgeProject,
   installCurseForgeResource,
@@ -102,7 +103,7 @@ ipcMain.handle('launcher:get-status', async () => {
     // The folder is created by Minecraft or the user, not by the dashboard.
   }
 
-  return { minecraftDirectory, folderExists, platform: process.platform };
+  return { minecraftDirectory, folderExists, platform: process.platform, version: app.getVersion() };
 });
 
 ipcMain.handle('launcher:open-minecraft-folder', async () => {
@@ -123,6 +124,10 @@ ipcMain.handle('launcher:search-content', async (_event, { source, query, select
 });
 ipcMain.handle('launcher:install-content', async (_event, { source, id, selection, contentType = 'mod' }) => {
   if (!selection) throw new Error('Pilih instance Minecraft terlebih dahulu.');
+  const reportProgress = (message) => {
+    _event.sender.send('launcher:progress', { stage: 'install', message });
+  };
+  const scanDirectory = (directory, onStatus = reportProgress) => scanWithDefender(directory, { onStatus });
   if (contentType === 'modpack') {
     if (source !== 'Modrinth') throw new Error('Instalasi modpack saat ini hanya mendukung Modrinth.');
     const instanceDirectory = getInstanceDirectory(selection);
@@ -134,9 +139,7 @@ ipcMain.handle('launcher:install-content', async (_event, { source, id, selectio
       (message) => _event.sender.send('launcher:progress', { stage: 'install', message })
     );
     await saveInstalledInstance(selection, installed.version);
-    return installModrinthModpack(id, selection, instanceDirectory, (message) => {
-      _event.sender.send('launcher:progress', { stage: 'install', message });
-    });
+    return installModrinthModpack(id, selection, instanceDirectory, reportProgress, scanDirectory);
   }
   if (contentType === 'mod' && selection.loader === 'Vanilla') {
     throw new Error('Pilih dan pasang Fabric, Forge, atau NeoForge sebelum memasang mod.');
@@ -153,14 +156,14 @@ ipcMain.handle('launcher:install-content', async (_event, { source, id, selectio
   const safeDirectory = await resolveInsideRoot(instanceDirectory, contentDirectory);
   if (source === 'Modrinth') {
     return contentType === 'mod'
-      ? installModrinthProject(id, selection, safeDirectory)
-      : installModrinthResource(id, selection, safeDirectory, contentType);
+      ? installModrinthProject(id, selection, safeDirectory, scanDirectory, reportProgress)
+      : installModrinthResource(id, selection, safeDirectory, contentType, scanDirectory, reportProgress);
   }
   if (source === 'CurseForge') {
     const key = await getCurseForgeKey();
     return contentType === 'mod'
-      ? installCurseForgeProject(id, selection, safeDirectory, key)
-      : installCurseForgeResource(id, selection, safeDirectory, key, contentType);
+      ? installCurseForgeProject(id, selection, safeDirectory, key, scanDirectory, reportProgress)
+      : installCurseForgeResource(id, selection, safeDirectory, key, contentType, scanDirectory, reportProgress);
   }
   throw new Error('Sumber mod tidak dikenal.');
 });

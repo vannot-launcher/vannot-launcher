@@ -6,6 +6,8 @@ const path = require('node:path');
 const test = require('node:test');
 const {
   downloadVerifiedFile,
+  installScannedContent,
+  installModrinthModpack,
   validateModpackManifest,
   validateModpackPath,
   searchModrinthContent,
@@ -102,6 +104,77 @@ test('mod downloads require HTTPS and a matching checksum', async (context) => {
   } finally {
     global.fetch = originalFetch;
   }
+});
+
+test('third-party files stay in staging unless antivirus scanning succeeds', async (context) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'vannot-staging-'));
+  context.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const contentDirectory = path.join(directory, 'mods');
+  const destination = path.join(contentDirectory, 'mod.jar');
+
+  await assert.rejects(installScannedContent(
+    contentDirectory,
+    async () => { throw new Error('Defender scan failed'); },
+    async (stagingDirectory) => {
+      await fs.writeFile(path.join(stagingDirectory, 'mod.jar'), 'untrusted mod');
+      return [{ filename: 'mod.jar', title: 'Untrusted mod' }];
+    }
+  ), /Defender scan failed/);
+  await assert.rejects(fs.access(destination), { code: 'ENOENT' });
+  assert.deepEqual((await fs.readdir(contentDirectory)).filter((name) => name.startsWith('.vannot-scan-')), []);
+});
+
+test('third-party files are moved into the game only after a successful scan', async (context) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'vannot-scanned-'));
+  context.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const contentDirectory = path.join(directory, 'mods');
+  let scannedContents;
+
+  const files = await installScannedContent(
+    contentDirectory,
+    async (stagingDirectory) => {
+      scannedContents = await fs.readdir(stagingDirectory);
+    },
+    async (stagingDirectory) => {
+      await fs.writeFile(path.join(stagingDirectory, 'clean-mod.jar'), 'scanned bytes');
+      return [{ filename: 'clean-mod.jar', title: 'Clean mod' }];
+    }
+  );
+  assert.deepEqual(scannedContents, ['clean-mod.jar']);
+  assert.deepEqual(await fs.readFile(path.join(contentDirectory, 'clean-mod.jar'), 'utf8'), 'scanned bytes');
+  assert.equal(files[0].title, 'Clean mod');
+});
+
+test('a quarantined file blocks the batch without replacing existing content', async (context) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'vannot-quarantine-'));
+  context.after(() => fs.rm(directory, { recursive: true, force: true }));
+  const contentDirectory = path.join(directory, 'mods');
+  const destination = path.join(contentDirectory, 'mod.jar');
+  await fs.mkdir(contentDirectory, { recursive: true });
+  await fs.writeFile(destination, 'previously installed mod');
+
+  await assert.rejects(installScannedContent(
+    contentDirectory,
+    async (stagingDirectory) => fs.rm(path.join(stagingDirectory, 'mod.jar')),
+    async (stagingDirectory) => {
+      await fs.writeFile(path.join(stagingDirectory, 'mod.jar'), 'detected mod');
+      return [{ filename: 'mod.jar', title: 'Detected mod' }];
+    }
+  ), { code: 'ENOENT' });
+  assert.equal(await fs.readFile(destination, 'utf8'), 'previously installed mod');
+});
+
+test('third-party file installation requires a scanner', async (context) => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'vannot-no-scanner-'));
+  context.after(() => fs.rm(directory, { recursive: true, force: true }));
+  await assert.rejects(
+    installScannedContent(directory, undefined, async () => []),
+    /Pemindaian Microsoft Defender wajib/
+  );
+  await assert.rejects(
+    installModrinthModpack('test', {}, directory),
+    /Pemindaian Microsoft Defender wajib/
+  );
 });
 
 test('mod filename validation rejects path traversal', () => {

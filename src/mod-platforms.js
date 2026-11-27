@@ -2,7 +2,6 @@ const crypto = require('node:crypto');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { createWriteStream } = require('node:fs');
-const os = require('node:os');
 const { Readable, Transform } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 const { open, openEntryReadStream, readEntry, walkEntriesGenerator } = require('@xmcl/unzip');
@@ -209,18 +208,50 @@ async function downloadVerifiedFile(url, destination, expectedHash, algorithm, e
   }
 }
 
-async function installModrinthModpack(projectId, selection, instanceDirectory, onStatus = () => {}) {
+function assertScanner(scanDirectory) {
+  if (typeof scanDirectory !== 'function') {
+    throw new Error('Pemindaian Microsoft Defender wajib dilakukan sebelum konten dipasang.');
+  }
+}
+
+async function installScannedContent(destinationDirectory, scanDirectory, downloadContent, onStatus = () => {}) {
+  assertScanner(scanDirectory);
+  await fs.mkdir(destinationDirectory, { recursive: true });
+  const stagingDirectory = await fs.mkdtemp(path.join(destinationDirectory, '.vannot-scan-'));
+  try {
+    const files = await downloadContent(stagingDirectory);
+    onStatus('Memindai konten sebelum pemasangan...');
+    await scanDirectory(stagingDirectory, onStatus);
+    const stagedPaths = files.map((file) => path.join(stagingDirectory, file.filename));
+    await Promise.all(stagedPaths.map((stagedPath) => fs.access(stagedPath)));
+    for (const file of files) {
+      const stagedPath = path.join(stagingDirectory, file.filename);
+      const destinationPath = path.join(destinationDirectory, file.filename);
+      await fs.rm(destinationPath, { force: true });
+      await fs.rename(stagedPath, destinationPath);
+    }
+    return files;
+  } finally {
+    await fs.rm(stagingDirectory, { recursive: true, force: true });
+  }
+}
+
+async function installModrinthModpack(projectId, selection, instanceDirectory, onStatus = () => {}, scanDirectory) {
+  assertScanner(scanDirectory);
   const version = await getModrinthVersion(projectId, selection, 'modpack');
   const file = version.files.find((item) => item.primary) || version.files[0];
   if (!file?.hashes?.sha512) throw new Error('File modpack Modrinth tidak memiliki checksum SHA-512.');
   const filename = safeModFilename(file.filename, '.mrpack');
   const archiveUrl = new URL(file.url);
   if (archiveUrl.protocol !== 'https:') throw new Error('Modpack harus diunduh melalui HTTPS.');
-  const temporaryDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'vannot-modpack-'));
-  const archivePath = path.join(temporaryDirectory, filename);
+  await fs.mkdir(instanceDirectory, { recursive: true });
+  const temporaryDirectory = await fs.mkdtemp(path.join(instanceDirectory, '.vannot-modpack-'));
+  const stagingDirectory = path.join(temporaryDirectory, 'content');
+  const archivePath = path.join(stagingDirectory, filename);
   let zip;
 
   try {
+    await fs.mkdir(stagingDirectory);
     onStatus(`Mengunduh modpack ${version.name} dari Modrinth...`);
     await downloadVerifiedFile(archiveUrl, archivePath, file.hashes.sha512, 'sha512', file.size);
     zip = await open(archivePath);
@@ -310,20 +341,24 @@ async function installModrinthModpack(projectId, selection, instanceDirectory, o
     const downloadTargets = await Promise.all(
       selectedFiles.map((item) => getModpackDestination(instanceDirectory, item.path))
     );
+    const stagedDownloadTargets = await Promise.all(
+      selectedFiles.map((item) => getModpackDestination(stagingDirectory, item.path))
+    );
     const overrideTargets = await Promise.all(
       overrides.map(({ relativePath }) => getModpackDestination(instanceDirectory, relativePath))
     );
+    const stagedOverrideTargets = await Promise.all(
+      overrides.map(({ relativePath }) => getModpackDestination(stagingDirectory, relativePath))
+    );
     let installedCount = 0;
     for (const [index, item] of selectedFiles.entries()) {
-      const target = downloadTargets[index];
       onStatus(`Mengunduh file modpack (${installedCount + 1}/${selectedFiles.length})...`);
-      await downloadVerifiedFile(downloadUrls[index], target, item.hashes.sha512, 'sha512', item.fileSize);
+      await downloadVerifiedFile(downloadUrls[index], stagedDownloadTargets[index], item.hashes.sha512, 'sha512', item.fileSize);
       installedCount += 1;
     }
 
     for (const [index, { entry, relativePath }] of overrides.entries()) {
-      const target = overrideTargets[index];
-      const stagingPath = `${target}.${process.pid}.${crypto.randomUUID()}.tmp`;
+      const stagingPath = stagedOverrideTargets[index];
       let writtenSize = 0;
       const sizeGuard = new Transform({
         transform(chunk, _encoding, callback) {
@@ -339,14 +374,24 @@ async function installModrinthModpack(projectId, selection, instanceDirectory, o
         onStatus(`Memasang file konfigurasi ${relativePath}...`);
         await pipeline(await openEntryReadStream(zip, entry), sizeGuard, createWriteStream(stagingPath, { flags: 'wx' }));
         if (writtenSize !== entry.uncompressedSize) throw new Error('Ukuran file override tidak cocok dengan arsip modpack.');
-        await fs.rm(target, { force: true });
-        await fs.rename(stagingPath, target);
         installedCount += 1;
-      } finally {
+      } catch (error) {
         await fs.rm(stagingPath, { force: true });
+        throw error;
       }
     }
 
+    onStatus('Memindai modpack sebelum pemasangan...');
+    await scanDirectory(stagingDirectory, onStatus);
+    await Promise.all([...stagedDownloadTargets, ...stagedOverrideTargets].map((target) => fs.access(target)));
+    for (const [index, source] of stagedDownloadTargets.entries()) {
+      await fs.rm(downloadTargets[index], { force: true });
+      await fs.rename(source, downloadTargets[index]);
+    }
+    for (const [index, source] of stagedOverrideTargets.entries()) {
+      await fs.rm(overrideTargets[index], { force: true });
+      await fs.rename(source, overrideTargets[index]);
+    }
     return [{ filename, title: version.name, installedCount }];
   } finally {
     zip?.close();
@@ -365,7 +410,7 @@ async function getModrinthVersion(projectId, selection, projectType) {
   return version;
 }
 
-async function installModrinthContent(projectId, selection, destinationDirectory, projectType = 'mod', installed = new Set()) {
+async function downloadModrinthContent(projectId, selection, destinationDirectory, projectType = 'mod', installed = new Set()) {
   if (!CONTENT_EXTENSIONS[projectType]) throw new Error(`Jenis konten ${projectType} belum didukung untuk instalasi.`);
   if (projectType === 'mod' && selection.loader === 'Vanilla') throw new Error('Mod Java memerlukan loader yang kompatibel.');
   if (installed.has(projectId)) return [];
@@ -382,13 +427,18 @@ async function installModrinthContent(projectId, selection, destinationDirectory
   const results = [{ filename, title: version.name }];
   for (const dependency of version.dependencies || []) {
     if (dependency.dependency_type !== 'required' || !dependency.project_id) continue;
-    results.push(...await installModrinthContent(dependency.project_id, selection, destinationDirectory, projectType, installed));
+    results.push(...await downloadModrinthContent(dependency.project_id, selection, destinationDirectory, projectType, installed));
   }
   return results;
 }
 
-async function installModrinthProject(projectId, selection, modsDirectory, installed = new Set()) {
-  return installModrinthContent(projectId, selection, modsDirectory, 'mod', installed);
+async function installModrinthProject(projectId, selection, modsDirectory, scanDirectory, onStatus = () => {}) {
+  return installScannedContent(
+    modsDirectory,
+    scanDirectory,
+    (stagingDirectory) => downloadModrinthContent(projectId, selection, stagingDirectory, 'mod'),
+    onStatus
+  );
 }
 
 async function getCurseForgeFile(modId, selection, apiKey, projectType = 'mod') {
@@ -405,34 +455,42 @@ async function getCurseForgeFile(modId, selection, apiKey, projectType = 'mod') 
   return file;
 }
 
-async function installCurseForgeProject(modId, selection, modsDirectory, apiKey) {
-  const file = await getCurseForgeFile(modId, selection, apiKey);
-  const filename = safeModFilename(file.fileName, '.jar');
-  const checksum = file.hashes?.find((hash) => hash.algo === 1);
-  if (!checksum?.value) throw new Error('File CurseForge tidak memiliki checksum SHA-1.');
-  await fs.mkdir(modsDirectory, { recursive: true });
-  await downloadVerifiedFile(file.downloadUrl, path.join(modsDirectory, filename), checksum.value, 'sha1', file.fileLength);
-  return [{ filename, title: file.displayName }];
+async function installCurseForgeProject(modId, selection, modsDirectory, apiKey, scanDirectory, onStatus = () => {}) {
+  return installScannedContent(modsDirectory, scanDirectory, async (stagingDirectory) => {
+    const file = await getCurseForgeFile(modId, selection, apiKey);
+    const filename = safeModFilename(file.fileName, '.jar');
+    const checksum = file.hashes?.find((hash) => hash.algo === 1);
+    if (!checksum?.value) throw new Error('File CurseForge tidak memiliki checksum SHA-1.');
+    await downloadVerifiedFile(file.downloadUrl, path.join(stagingDirectory, filename), checksum.value, 'sha1', file.fileLength);
+    return [{ filename, title: file.displayName }];
+  }, onStatus);
 }
 
-async function installModrinthResource(projectId, selection, resourcesDirectory, resourceType) {
+async function installModrinthResource(projectId, selection, resourcesDirectory, resourceType, scanDirectory, onStatus = () => {}) {
   if (!['resourcepack', 'shader'].includes(resourceType)) throw new Error('Jenis resource belum didukung.');
-  return installModrinthContent(projectId, selection, resourcesDirectory, resourceType);
+  return installScannedContent(
+    resourcesDirectory,
+    scanDirectory,
+    (stagingDirectory) => downloadModrinthContent(projectId, selection, stagingDirectory, resourceType),
+    onStatus
+  );
 }
 
-async function installCurseForgeResource(modId, selection, resourcesDirectory, apiKey, resourceType) {
+async function installCurseForgeResource(modId, selection, resourcesDirectory, apiKey, resourceType, scanDirectory, onStatus = () => {}) {
   if (!['resourcepack', 'shader'].includes(resourceType)) throw new Error('Jenis resource belum didukung.');
-  const file = await getCurseForgeFile(modId, selection, apiKey, resourceType);
-  const filename = safeModFilename(file.fileName, '.zip');
-  const checksum = file.hashes?.find((hash) => hash.algo === 1);
-  if (!checksum?.value) throw new Error('File CurseForge tidak memiliki checksum SHA-1.');
-  await fs.mkdir(resourcesDirectory, { recursive: true });
-  await downloadVerifiedFile(file.downloadUrl, path.join(resourcesDirectory, filename), checksum.value, 'sha1', file.fileLength);
-  return [{ filename, title: file.displayName }];
+  return installScannedContent(resourcesDirectory, scanDirectory, async (stagingDirectory) => {
+    const file = await getCurseForgeFile(modId, selection, apiKey, resourceType);
+    const filename = safeModFilename(file.fileName, '.zip');
+    const checksum = file.hashes?.find((hash) => hash.algo === 1);
+    if (!checksum?.value) throw new Error('File CurseForge tidak memiliki checksum SHA-1.');
+    await downloadVerifiedFile(file.downloadUrl, path.join(stagingDirectory, filename), checksum.value, 'sha1', file.fileLength);
+    return [{ filename, title: file.displayName }];
+  }, onStatus);
 }
 
 module.exports = {
   downloadVerifiedFile,
+  installScannedContent,
   installModrinthModpack,
   installCurseForgeProject,
   installCurseForgeResource,

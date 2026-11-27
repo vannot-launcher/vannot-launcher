@@ -166,6 +166,11 @@ function renderModsView(contentType = 'mod') {
         install.type = 'button';
         install.textContent = contentType === 'modpack' ? 'Pasang pack' : 'Pasang';
         install.addEventListener('click', async () => {
+          const itemType = contentType === 'modpack' ? 'Modpack' : contentType === 'mod' ? 'Mod' : 'konten';
+          const accepted = window.confirm(
+            `${itemType} dari pihak ketiga dapat berisi kode berbahaya. Launcher memeriksa HTTPS dan checksum, lalu meminta izin Administrator untuk memindai dengan Microsoft Defender. Pemindaian antivirus tidak menjamin 100% bebas virus. Lanjutkan?`
+          );
+          if (!accepted) return;
           install.disabled = true;
           install.textContent = 'Mengunduh...';
           try {
@@ -610,9 +615,10 @@ document.querySelector('#welcome-date').textContent = new Intl.DateTimeFormat('i
   year: 'numeric'
 }).format(new Date()).toUpperCase();
 
-window.dinasti.getStatus().then(({ minecraftDirectory, folderExists }) => {
+window.dinasti.getStatus().then(({ minecraftDirectory, folderExists, version }) => {
   document.querySelector('#folder-status').textContent = folderExists ? 'Terdeteksi' : 'Belum dibuat';
   document.querySelector('#footer-path').textContent = minecraftDirectory;
+  document.querySelector('#launcher-version').textContent = `v${version}`;
 }).catch(() => {
   document.querySelector('#folder-status').textContent = 'Status tidak tersedia';
 });

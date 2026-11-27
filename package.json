@@ -1,13 +1,13 @@
 {
-  "name": "dinastixd-launcher",
-  "version": "0.4.0",
-  "description": "DinastiXD Minecraft Java Launcher",
-  "author": "DinastiXD",
+  "name": "vannot-launcher",
+  "version": "1.0.0",
+  "description": "Vannot Minecraft Java Launcher",
+  "author": "Vannot",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "test": "node --test",
-    "dist:win": "electron-builder --win nsis --x64 --ia32 --publish never"
+    "dist:win": "electron-builder --win nsis --x64 --publish never"
   },
   "devDependencies": {
     "electron": "^43.0.0",
@@ -15,16 +15,17 @@
   },
   "build": {
     "appId": "id.dinastixd.launcher",
-    "productName": "DinastiXD Launcher",
+    "productName": "Vannot Launcher",
     "files": [
       "src/**/*",
       "package.json"
     ],
     "win": {
+      "icon": "assets/vannot.ico",
       "target": [
         "nsis"
       ],
-      "artifactName": "DinastiXD-Launcher-${version}-${arch}.${ext}"
+      "artifactName": "Vannot-Launcher-${version}-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,

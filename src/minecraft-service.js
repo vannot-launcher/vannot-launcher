@@ -1,14 +1,21 @@
 const { Version, launch } = require('@xmcl/core');
+const fs = require('node:fs/promises');
 const os = require('node:os');
+const { createWriteStream } = require('node:fs');
+const { Readable, Transform } = require('node:stream');
+const { pipeline } = require('node:stream/promises');
 const {
   getFabricLoaderArtifact,
   getLoaderArtifactListFor,
+  getQuiltLoaderVersionsByMinecraft,
   getPotentialJavaLocations,
   getVersionList,
   installFabric,
   installDependencies,
   installForge,
+  installOptifine: installOptifineJar,
   installNeoForged,
+  installQuiltVersion,
   install,
   resolveJava
 } = require('@xmcl/installer');
@@ -47,6 +54,29 @@ async function getForgeVersions(minecraftVersion) {
   return parseForgePage(await response.text()).versions;
 }
 
+function parseOptifineVersions(html, minecraftVersion) {
+  const prefix = `OptiFine_${minecraftVersion}_`;
+  const previewPrefix = `preview_${prefix}`;
+  const files = new Set(
+    [...html.matchAll(/adloadx\?f=([^&"'<>]+\.jar)/gi)]
+      .map((match) => decodeURIComponent(match[1]))
+      .filter((filename) => filename.startsWith(prefix) || filename.startsWith(previewPrefix))
+  );
+  return [...files]
+    .map((id) => ({
+      id,
+      label: id.replace(previewPrefix, 'Preview ').replace(prefix, '').replace(/\.jar$/i, ''),
+      stable: !id.startsWith('preview_')
+    }))
+    .sort((first, second) => Number(second.stable) - Number(first.stable));
+}
+
+async function getOptifineVersions(minecraftVersion) {
+  const response = await fetch('https://optifine.net/downloads');
+  if (!response.ok) throw new Error(`Daftar OptiFine gagal dimuat (${response.status}).`);
+  return parseOptifineVersions(await response.text(), minecraftVersion);
+}
+
 function compareVersionsDescending(first, second) {
   const a = first.split(/[.-]/).map((part) => Number(part) || 0);
   const b = second.split(/[.-]/).map((part) => Number(part) || 0);
@@ -65,6 +95,14 @@ async function listLoaderVersions(minecraftVersion, loader) {
       stable: artifact.loader.stable
     }));
   }
+  if (loader === 'Quilt') {
+    const artifacts = await getQuiltLoaderVersionsByMinecraft({ minecraftVersion });
+    return artifacts.map(({ loader: artifact }) => ({
+      id: artifact.version,
+      stable: !/(?:alpha|beta|rc)/i.test(artifact.version)
+    }));
+  }
+  if (loader === 'OptiFine') return getOptifineVersions(minecraftVersion);
   if (loader === 'Forge') {
     const versions = await getForgeVersions(minecraftVersion);
     return versions.map((version) => ({ id: version.version, stable: version.type === 'recommended' }));
@@ -90,6 +128,70 @@ async function ensureJavaForVersion(gameDirectory, versionId, onStatus) {
   return installAdoptiumJava(gameDirectory, javaMajor, onStatus);
 }
 
+async function installOfficialOptifine(gameDirectory, minecraftVersion, installerName, java, onStatus) {
+  if (!/^(?:preview_)?OptiFine_[a-zA-Z0-9._-]+\.jar$/.test(installerName)) {
+    throw new Error('Nama installer OptiFine resmi tidak valid.');
+  }
+  const temporaryDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'vannot-optifine-'));
+  const installerPath = path.join(temporaryDirectory, installerName);
+  try {
+    onStatus(`Mengambil unduhan OptiFine resmi untuk Minecraft ${minecraftVersion}...`);
+    const landingUrl = new URL('https://optifine.net/adloadx');
+    landingUrl.searchParams.set('f', installerName);
+    const landingResponse = await fetch(landingUrl);
+    const landingResponseUrl = new URL(landingResponse.url || landingUrl);
+    if (!landingResponse.ok || landingResponseUrl.protocol !== 'https:' || landingResponseUrl.hostname !== 'optifine.net') {
+      throw new Error('Halaman unduhan resmi OptiFine tidak dapat diakses.');
+    }
+    const landingHtml = await landingResponse.text();
+    const [, href] = landingHtml.match(/href=["']([^"']*downloadx\?f=[^"']+)["']/i) || [];
+    if (!href) throw new Error('Tautan unduhan resmi OptiFine tidak ditemukan.');
+
+    const downloadUrl = new URL(href.replaceAll('&amp;', '&'), 'https://optifine.net/');
+    if (downloadUrl.protocol !== 'https:' || downloadUrl.hostname !== 'optifine.net' || downloadUrl.searchParams.get('f') !== installerName) {
+      throw new Error('Sumber unduhan OptiFine tidak tepercaya.');
+    }
+    const response = await fetch(downloadUrl);
+    const responseUrl = new URL(response.url || downloadUrl);
+    if (!response.ok || !response.body || responseUrl.protocol !== 'https:' || responseUrl.hostname !== 'optifine.net') {
+      throw new Error(`Unduhan OptiFine gagal (${response.status}).`);
+    }
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.toLowerCase().includes('java-archive') && !contentType.toLowerCase().includes('octet-stream')) {
+      throw new Error('Situs OptiFine tidak mengembalikan installer JAR.');
+    }
+
+    let downloadedSize = 0;
+    const sizeGuard = new Transform({
+      transform(chunk, _encoding, callback) {
+        downloadedSize += chunk.length;
+        if (downloadedSize > 150 * 1024 * 1024) {
+          callback(new Error('Installer OptiFine melebihi batas ukuran 150 MB.'));
+          return;
+        }
+        callback(null, chunk);
+      }
+    });
+    onStatus('Mengunduh installer OptiFine resmi...');
+    await pipeline(Readable.fromWeb(response.body), sizeGuard, createWriteStream(installerPath, { flags: 'wx' }));
+    const handle = await fs.open(installerPath, 'r');
+    try {
+      const signature = Buffer.alloc(4);
+      const { bytesRead } = await handle.read(signature, 0, signature.length, 0);
+      if (bytesRead !== signature.length || signature[0] !== 0x50 || signature[1] !== 0x4b) {
+        throw new Error('Unduhan OptiFine bukan arsip JAR yang valid.');
+      }
+    } finally {
+      await handle.close();
+    }
+
+    onStatus('Memasang OptiFine dengan Java yang cocok...');
+    return installOptifineJar(installerPath, gameDirectory, { java });
+  } finally {
+    await fs.rm(temporaryDirectory, { recursive: true, force: true });
+  }
+}
+
 async function installLoaderVersion(gameDirectory, minecraftVersion, loader, loaderVersion, onStatus = () => {}) {
   if (loader === 'Vanilla') return minecraftVersion;
   if (!loaderVersion) throw new Error(`Pilih versi ${loader} terlebih dahulu.`);
@@ -104,8 +206,18 @@ async function installLoaderVersion(gameDirectory, minecraftVersion, loader, loa
     const artifact = await getFabricLoaderArtifact(minecraftVersion, loaderVersion);
     return installFabric({ minecraftVersion, version: artifact.loader.version, minecraft: gameDirectory });
   }
+  if (loader === 'Quilt') {
+    return installQuiltVersion({ minecraftVersion, version: loaderVersion, minecraft: gameDirectory });
+  }
 
   const java = await ensureJavaForVersion(gameDirectory, minecraftVersion, onStatus);
+  if (loader === 'OptiFine') {
+    const versions = await getOptifineVersions(minecraftVersion);
+    if (!versions.some((version) => version.id === loaderVersion)) {
+      throw new Error(`Versi OptiFine tidak ditemukan untuk Minecraft ${minecraftVersion}.`);
+    }
+    return installOfficialOptifine(gameDirectory, minecraftVersion, loaderVersion, java, onStatus);
+  }
   if (loader === 'Forge') {
     const forgeVersion = (await getForgeVersions(minecraftVersion)).find((version) => version.version === loaderVersion);
     if (!forgeVersion?.installer?.path) throw new Error('Installer Forge tidak ditemukan.');
@@ -147,6 +259,16 @@ async function findJava(requiredMajor) {
   return available.find((java) => java.majorVersion === requiredMajor);
 }
 
+async function getJavaRuntimeStatus(versionId) {
+  const majorVersion = getRequiredJavaMajor(versionId);
+  const java = await findJava(majorVersion);
+  return {
+    majorVersion,
+    installed: Boolean(java),
+    installAvailable: process.platform === 'win32'
+  };
+}
+
 async function launchOfficialVersion({ gameDirectory, versionId, account, onStatus = () => {} }) {
   if (!account?.profile || !account.mcToken) {
     throw new Error('Login dengan akun Microsoft pemilik Minecraft Java Edition diperlukan.');
@@ -183,5 +305,7 @@ module.exports = {
   installOfficialVersion,
   listLoaderVersions,
   launchOfficialVersion,
-  listOfficialVersions
+  listOfficialVersions,
+  getJavaRuntimeStatus,
+  parseOptifineVersions
 };

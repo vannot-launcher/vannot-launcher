@@ -3,6 +3,7 @@ const names = {
   library: 'LIBRARY',
   files: 'FILE GAME',
   mods: 'MODS',
+  modpacks: 'MODPACKS',
   'resource-packs': 'RESOURCE PACKS',
   shaders: 'SHADERS',
   worlds: 'WORLDS',
@@ -21,11 +22,12 @@ const views = {
 const pageContent = document.querySelector('#page-content');
 const breadcrumb = document.querySelector('#breadcrumb-current');
 const toast = document.querySelector('#toast');
-const availableLoaders = ['Vanilla', 'Fabric', 'Forge', 'NeoForge'];
+const availableLoaders = ['Vanilla', 'Fabric', 'Quilt', 'Forge', 'NeoForge', 'OptiFine'];
 const savedLoader = localStorage.getItem('dinasti.selectedLoader');
 let selectedLoader = availableLoaders.includes(savedLoader) ? savedLoader : 'Vanilla';
 let selectedLoaderVersion = '';
 let loaderRequestId = 0;
+let javaStatusRequestId = 0;
 let currentAccount;
 let toastTimer;
 
@@ -60,6 +62,12 @@ function showView(view) {
     renderModsView('mod');
     return;
   }
+  if (view === 'modpacks') {
+    breadcrumb.textContent = names.modpacks;
+    document.querySelectorAll('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.view === view));
+    renderModsView('modpack');
+    return;
+  }
   if (view === 'resource-packs' || view === 'shaders') {
     breadcrumb.textContent = names[view];
     document.querySelectorAll('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.view === view));
@@ -80,7 +88,7 @@ function showView(view) {
   });
   pageContent.innerHTML = `
     <div class="welcome-row">
-      <div><p class="eyebrow">DINASTIXD LAUNCHER <span class="eyebrow-line"></span> ${view === 'settings' ? 'PENGATURAN' : 'SEGERA HADIR'}</p><h1>${title}</h1></div>
+      <div><p class="eyebrow">VANNOT LAUNCHER <span class="eyebrow-line"></span> ${view === 'settings' ? 'PENGATURAN' : 'SEGERA HADIR'}</p><h1>${title}</h1></div>
       <button class="text-button" data-action="open-folder"><span>⌁</span> Buka folder game</button>
     </div>
     <section class="empty-view"><div class="empty-content">
@@ -88,7 +96,7 @@ function showView(view) {
       <h2>${heading}</h2><p>${description}</p>
       <button data-action="open-folder">Buka folder .minecraft</button>
     </div></section>
-    <footer class="page-footer"><span>DINASTIXD LAUNCHER <b>·</b> JAVA EDITION</span><span>Fitur ini belum tersedia</span></footer>`;
+    <footer class="page-footer"><span>VANNOT LAUNCHER <b>·</b> JAVA EDITION</span><span>Fitur ini belum tersedia</span></footer>`;
 
   pageContent.querySelectorAll('[data-action="open-folder"]').forEach((button) => {
     button.addEventListener('click', openMinecraftFolder);
@@ -96,11 +104,11 @@ function showView(view) {
 }
 
 function renderModsView(contentType = 'mod') {
-  const titles = { mod: 'Mods', resourcepack: 'Resource packs', shader: 'Shaders' };
+  const titles = { mod: 'Mods', modpack: 'Modpacks', resourcepack: 'Resource packs', shader: 'Shaders' };
   const title = titles[contentType] || 'Mods';
   pageContent.innerHTML = `
     <div class="welcome-row">
-      <div><p class="eyebrow">CONTENT CATALOG <span class="eyebrow-line"></span> MODRINTH · CURSEFORGE</p><h1>${title}</h1></div>
+      <div><p class="eyebrow">CONTENT CATALOG <span class="eyebrow-line"></span> ${contentType === 'modpack' ? 'MODRINTH' : 'MODRINTH · CURSEFORGE'}</p><h1>${title}</h1></div>
       <span class="setup-note" id="mod-instance-label"></span>
     </div>
     <section class="mod-browser">
@@ -117,6 +125,13 @@ function renderModsView(contentType = 'mod') {
   const selection = getSelectedInstance();
   document.querySelector('#mod-instance-label').textContent = `${selection.loader} ${selection.loaderVersion || ''} · ${selection.minecraftVersion}`;
   const form = document.querySelector('#mod-search-form');
+  if (contentType === 'modpack') {
+    form.classList.add('modpack-search');
+    document.querySelector('#mod-source').replaceChildren(new Option('Modrinth', 'Modrinth'));
+    document.querySelector('#mod-query').placeholder = 'Cari modpack...';
+    document.querySelector('#mod-query').setAttribute('aria-label', 'Cari modpack');
+    document.querySelector('#mod-status').textContent = 'Pilih loader dan versinya yang cocok di Dashboard. Modpack dipasang ke instance terpilih.';
+  }
   const status = document.querySelector('#mod-status');
   const button = document.querySelector('#mod-search-button');
   const results = document.querySelector('#mod-results');
@@ -149,16 +164,18 @@ function renderModsView(contentType = 'mod') {
         const install = document.createElement('button');
         install.className = 'manage-button mod-install-button';
         install.type = 'button';
-        install.textContent = 'Pasang';
+        install.textContent = contentType === 'modpack' ? 'Pasang pack' : 'Pasang';
         install.addEventListener('click', async () => {
           install.disabled = true;
           install.textContent = 'Mengunduh...';
           try {
             const files = await window.dinasti.installContent(mod.source, mod.id, selection, contentType);
             install.textContent = 'Terpasang';
-            showToast(`${files.length} file mod berhasil dipasang.`);
+            showToast(contentType === 'modpack'
+              ? `Modpack ${files[0]?.title || ''} berhasil dipasang.`
+              : `${files.length} file berhasil dipasang.`);
           } catch (error) {
-            install.textContent = 'Pasang';
+            install.textContent = contentType === 'modpack' ? 'Pasang pack' : 'Pasang';
             showToast(error.message, true);
           } finally {
             install.disabled = false;
@@ -243,7 +260,7 @@ async function renderFileBrowser(relativeDirectory = '') {
       <div class="file-toolbar"><div class="file-path">${breadcrumbPath}</div><button class="file-refresh" data-action="refresh-files" title="Muat ulang" aria-label="Muat ulang">↻</button></div>
       <div class="file-columns"><div class="file-list" id="file-list"><div class="file-empty">Memuat file...</div></div><div class="file-preview" id="file-preview"><span class="preview-placeholder">Pilih file teks untuk melihat pratinjaunya.</span></div></div>
     </section>
-    <footer class="page-footer"><span>DINASTIXD LAUNCHER <b>·</b> JAVA EDITION</span><span>${breadcrumbPath}</span></footer>`;
+    <footer class="page-footer"><span>VANNOT LAUNCHER <b>·</b> JAVA EDITION</span><span>${breadcrumbPath}</span></footer>`;
 
   pageContent.querySelector('[data-action="open-folder"]').addEventListener('click', openMinecraftFolder);
   pageContent.querySelector('[data-action="refresh-files"]').addEventListener('click', () => renderFileBrowser(relativeDirectory));
@@ -328,8 +345,10 @@ document.querySelector('#version-select').addEventListener('change', () => {
 });
 
 const versionSelect = document.querySelector('#version-select');
+const versionFilter = document.querySelector('#version-filter');
 const loaderVersionSelect = document.querySelector('#loader-version-select');
 const savedVersion = localStorage.getItem('dinasti.selectedVersion');
+let officialManifest;
 document.querySelectorAll('#loader-options button').forEach((button) => {
   button.classList.toggle('selected', button.dataset.loader === selectedLoader);
 });
@@ -352,21 +371,46 @@ function getSelectedInstance() {
 
 updateSelection();
 
+function updateVersionOptions(preferredVersion = versionSelect.value || savedVersion) {
+  const versions = window.vannotVersionFilter.filterOfficialVersions(officialManifest.versions, versionFilter.value);
+  if (!versions.length) {
+    versionSelect.replaceChildren(new Option('Tidak ada versi pada filter ini', ''));
+    versionSelect.disabled = true;
+    return false;
+  }
+
+  const latestSnapshot = officialManifest.versions.find((version) => version.type === 'snapshot')?.id;
+  versionSelect.replaceChildren(...versions.map((version) => {
+    const option = document.createElement('option');
+    const typeLabel = window.vannotVersionFilter.getVersionTypeLabel(version.type);
+    const latestLabel = version.id === officialManifest.latest
+      ? ' · Rilis terbaru'
+      : version.id === latestSnapshot
+        ? ' · Snapshot terbaru'
+        : '';
+    option.value = version.id;
+    option.textContent = `${version.id} · ${typeLabel}${latestLabel}`;
+    return option;
+  }));
+  const selected = versions.some((version) => version.id === preferredVersion)
+    ? preferredVersion
+    : versions.find((version) => version.id === officialManifest.latest)?.id || versions[0].id;
+  versionSelect.value = selected;
+  versionSelect.disabled = false;
+  return true;
+}
+
+versionFilter.addEventListener('change', () => {
+  if (updateVersionOptions(versionSelect.value)) loadLoaderVersions();
+});
+
 async function loadVersions() {
   versionSelect.disabled = true;
+  versionFilter.disabled = true;
   try {
-    const manifest = await window.dinasti.getVersions();
-    versionSelect.replaceChildren(...manifest.versions.map((version) => {
-      const option = document.createElement('option');
-      option.value = version.id;
-      option.textContent = `${version.id}${version.id === manifest.latest ? ' · Terbaru' : ''}`;
-      return option;
-    }));
-    const preferredVersion = manifest.versions.some((version) => version.id === savedVersion)
-      ? savedVersion
-      : manifest.latest;
-    versionSelect.value = preferredVersion;
-    versionSelect.disabled = false;
+    officialManifest = await window.dinasti.getVersions();
+    versionFilter.disabled = false;
+    if (!updateVersionOptions(savedVersion)) return;
     await loadLoaderVersions();
   } catch (error) {
     versionSelect.replaceChildren(new Option('Versi Mojang tidak dapat dimuat', ''));
@@ -375,18 +419,33 @@ async function loadVersions() {
 }
 
 function setGameStatus(message) {
-  document.querySelector('#game-status-text').textContent = message;
+  const status = document.querySelector('#game-status-text');
+  if (status) status.textContent = message;
 }
 
 async function updateVersionStatus() {
   const version = versionSelect.value;
   if (!version) return;
+  const requestId = ++javaStatusRequestId;
   try {
     const instance = getSelectedInstance();
-    const installed = await window.dinasti.isVersionInstalled(instance);
-    setGameStatus(installed ? `${selectedLoader} ${selectedLoaderVersion || version} siap dimainkan.` : `${selectedLoader} ${selectedLoaderVersion || version} belum terpasang. Klik Main untuk memasang.`);
+    const [installed, java] = await Promise.all([
+      window.dinasti.isVersionInstalled(instance),
+      window.dinasti.getJavaRuntimeStatus(version)
+    ]);
+    if (requestId !== javaStatusRequestId) return;
+    const javaStatus = document.querySelector('#java-runtime-status');
+    const javaBadge = document.querySelector('#java-runtime-badge');
+    if (!javaStatus || !javaBadge) return;
+    javaStatus.textContent = java.installed
+      ? `Java ${java.majorVersion} siap digunakan`
+      : java.installAvailable
+        ? `Java ${java.majorVersion} akan diunduh saat bermain`
+        : `Java ${java.majorVersion} perlu dipasang`;
+    javaBadge.textContent = java.installed ? 'SIAP' : java.installAvailable ? 'OTOMATIS' : 'PERLU JAVA';
+    setGameStatus(installed ? `${selectedLoader} ${selectedLoaderVersion || version} siap dimainkan. Membutuhkan Java ${java.majorVersion}.` : `${selectedLoader} ${selectedLoaderVersion || version} belum terpasang. Membutuhkan Java ${java.majorVersion}; klik Main untuk memasang.`);
   } catch (error) {
-    setGameStatus(error.message);
+    if (requestId === javaStatusRequestId) setGameStatus(error.message);
   }
 }
 
@@ -421,7 +480,7 @@ async function loadLoaderVersions() {
     loaderVersionSelect.replaceChildren(...versions.map((version) => {
       const option = document.createElement('option');
       option.value = version.id;
-      option.textContent = `${version.id}${version.stable ? ' · Stabil' : ''}`;
+      option.textContent = `${version.label || version.id}${version.stable ? ' · Stabil' : ''}`;
       return option;
     }));
     const saved = localStorage.getItem(`dinasti.loader.${minecraftVersion}.${selectedLoader}`);

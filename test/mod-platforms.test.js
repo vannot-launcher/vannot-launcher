@@ -6,6 +6,9 @@ const path = require('node:path');
 const test = require('node:test');
 const {
   downloadVerifiedFile,
+  validateModpackManifest,
+  validateModpackPath,
+  searchModrinthContent,
   safeModFilename,
   searchCurseForgeMods,
   searchModrinthMods
@@ -27,6 +30,55 @@ test('Modrinth search filters by project type, Minecraft version, and loader', a
   } finally {
     global.fetch = originalFetch;
   }
+});
+
+test('Modrinth modpack search filters to the official selected Minecraft version', async () => {
+  const originalFetch = global.fetch;
+  let requestUrl;
+  global.fetch = async (url) => {
+    requestUrl = new URL(url);
+    return new Response(JSON.stringify({ hits: [] }), { status: 200 });
+  };
+
+  try {
+    await searchModrinthContent('kitchen sink', {
+      minecraftVersion: '1.21.1',
+      loader: 'Fabric'
+    }, 'modpack');
+    assert.deepEqual(JSON.parse(requestUrl.searchParams.get('facets')), [
+      ['project_type:modpack'],
+      ['versions:1.21.1']
+    ]);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('Modrinth modpacks must match the selected game and loader', () => {
+  const selection = { minecraftVersion: '1.21.1', loader: 'Fabric', loaderVersion: '0.16.5' };
+  const manifest = {
+    formatVersion: 1,
+    game: 'minecraft',
+    dependencies: { minecraft: '1.21.1', 'fabric-loader': '0.16.5' }
+  };
+
+  assert.doesNotThrow(() => validateModpackManifest(manifest, selection));
+  assert.throws(() => validateModpackManifest({
+    ...manifest,
+    dependencies: { ...manifest.dependencies, minecraft: '1.20.1' }
+  }, selection), /Minecraft 1\.20\.1/);
+  assert.throws(() => validateModpackManifest(manifest, { ...selection, loaderVersion: '0.16.4' }), /memerlukan Fabric 0\.16\.5/);
+  assert.doesNotThrow(() => validateModpackManifest({
+    ...manifest,
+    dependencies: { minecraft: '1.21.1', 'quilt-loader': '0.28.1' }
+  }, { minecraftVersion: '1.21.1', loader: 'Quilt', loaderVersion: '0.28.1' }));
+});
+
+test('Modrinth modpack paths reject traversal and Windows device names', () => {
+  assert.deepEqual(validateModpackPath('mods/example.jar'), ['mods', 'example.jar']);
+  assert.throws(() => validateModpackPath('mods/../../outside.jar'), /jalur file yang tidak valid/);
+  assert.throws(() => validateModpackPath('config/CON.toml'), /nama file yang tidak didukung Windows/);
+  assert.throws(() => validateModpackPath('saves/world/level.dat'), /lokasi yang tidak didukung/);
 });
 
 test('CurseForge refuses requests when no official API key is configured', async () => {

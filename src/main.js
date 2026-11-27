@@ -8,6 +8,7 @@ const { resolveInsideRoot } = require('./minecraft-path');
 const {
   installCurseForgeProject,
   installCurseForgeResource,
+  installModrinthModpack,
   installModrinthResource,
   installModrinthProject,
   searchCurseForgeContent,
@@ -16,6 +17,7 @@ const {
 const {
   installOfficialVersion,
   installSelectedVersion,
+  getJavaRuntimeStatus,
   launchOfficialVersion,
   listLoaderVersions,
   listOfficialVersions
@@ -75,8 +77,8 @@ async function createWindow() {
     height: 940,
     minWidth: 1080,
     minHeight: 720,
-    backgroundColor: '#10140f',
-    title: 'DinastiXD Launcher',
+    backgroundColor: '#0b110d',
+    title: 'Vannot Launcher',
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -110,6 +112,7 @@ ipcMain.handle('launcher:open-minecraft-folder', async () => {
 });
 
 ipcMain.handle('launcher:get-versions', async () => listOfficialVersions());
+ipcMain.handle('launcher:get-java-status', async (_event, versionId) => getJavaRuntimeStatus(versionId));
 ipcMain.handle('launcher:get-loader-versions', async (_event, minecraftVersion, loader) => {
   return listLoaderVersions(minecraftVersion, loader);
 });
@@ -120,6 +123,21 @@ ipcMain.handle('launcher:search-content', async (_event, { source, query, select
 });
 ipcMain.handle('launcher:install-content', async (_event, { source, id, selection, contentType = 'mod' }) => {
   if (!selection) throw new Error('Pilih instance Minecraft terlebih dahulu.');
+  if (contentType === 'modpack') {
+    if (source !== 'Modrinth') throw new Error('Instalasi modpack saat ini hanya mendukung Modrinth.');
+    const instanceDirectory = getInstanceDirectory(selection);
+    const installed = await installSelectedVersion(
+      instanceDirectory,
+      selection.minecraftVersion,
+      selection.loader || 'Vanilla',
+      selection.loaderVersion || '',
+      (message) => _event.sender.send('launcher:progress', { stage: 'install', message })
+    );
+    await saveInstalledInstance(selection, installed.version);
+    return installModrinthModpack(id, selection, instanceDirectory, (message) => {
+      _event.sender.send('launcher:progress', { stage: 'install', message });
+    });
+  }
   if (contentType === 'mod' && selection.loader === 'Vanilla') {
     throw new Error('Pilih dan pasang Fabric, Forge, atau NeoForge sebelum memasang mod.');
   }

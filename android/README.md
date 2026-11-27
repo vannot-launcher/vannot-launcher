@@ -11,7 +11,7 @@ rustup target add aarch64-linux-android x86_64-linux-android
 cargo install cargo-ndk --locked
 cargo test --locked --manifest-path android/rust-core/Cargo.toml
 export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.2.12479018"
-cargo ndk -t arm64-v8a -t x86_64 -P 24 -o android/app/build/generated/jniLibs build --locked --manifest-path android/rust-core/Cargo.toml --release
+cargo ndk -t arm64-v8a -t x86_64 -P 24 --manifest-path android/rust-core/Cargo.toml -o android/app/build/generated/jniLibs build --locked --release
 cd android
 ./gradlew testDebugUnitTest assembleDebug
 ```
